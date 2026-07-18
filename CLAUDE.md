@@ -1,26 +1,74 @@
-@AGENTS.md
-I am a backend engineer experienced in Java, PL/SQL, SQL, .NET, and enterprise architecture. I am new to Next.js and frontend development.
+# SchemaCraft AI
 
-Read my project and CLAUDE.md.
+## Project
 
-Help me build SchemaCraft AI professionally.
+SchemaCraft AI is an AI-powered SaaS that generates:
 
-Start by creating a modern SaaS dashboard with:
+- SQL Schema
+- Drizzle ORM Models
+- Dummy JSON
+- Database Documentation
 
-- Left sidebar
-- Top navigation
-- Prompt editor
-- SQL preview panel
-- Drizzle model panel
-- JSON output panel
-- Responsive layout
-- Beautiful Tailwind styling
-- Dark/light mode support
-- Clean reusable components
+from natural language prompts.
 
-Explain major frontend concepts in terms a backend engineer understands.
+---
 
-After every major change, summarize:
-1. Files created
-2. Why they exist
-3. How data flows through them.
+## Tech Stack
+
+- Next.js 16
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- App Router
+- React Server Components
+- Anthropic SDK
+- Supabase
+- Drizzle ORM
+
+---
+
+## Coding Rules
+
+- Never use `any`.
+- Prefer React Server Components.
+- Use TypeScript everywhere.
+- Keep UI components reusable.
+- Backend logic belongs inside Server Actions.
+- Explain React concepts using backend analogies.
+
+---
+
+## Folder Structure
+
+src/
+
+app/
+
+components/
+
+lib/
+
+types/
+
+hooks/
+
+---
+
+## Developer Context
+
+The lead developer is an experienced backend engineer with Java, PL/SQL, SQL, .NET, REST API and enterprise architecture experience.
+
+Whenever frontend concepts are introduced:
+
+- explain why
+- explain how
+- compare them to backend architecture.
+
+Always explain changes before implementing them.
+
+After each implementation summarize:
+
+- Files changed
+- Purpose
+- Data flow
+- Important React concepts
