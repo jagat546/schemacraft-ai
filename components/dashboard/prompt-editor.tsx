@@ -7,10 +7,12 @@ export function PromptEditor({
   value,
   onChange,
   onGenerate,
+  isGenerating,
 }: {
   value: string
   onChange: (value: string) => void
   onGenerate: () => void
+  isGenerating: boolean
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -20,9 +22,13 @@ export function PromptEditor({
         onChange={(event) => onChange(event.target.value)}
         rows={4}
       />
-      <Button onClick={onGenerate} disabled={value.trim().length === 0} className="self-end">
+      <Button
+        onClick={onGenerate}
+        disabled={isGenerating || value.trim().length === 0}
+        className="self-end"
+      >
         <Sparkles />
-        Generate
+        {isGenerating ? "Generating…" : "Generate"}
       </Button>
     </div>
   )
