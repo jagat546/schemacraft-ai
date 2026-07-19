@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react"
+import { Loader2, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,7 +27,7 @@ export function PromptEditor({
         disabled={isGenerating || value.trim().length === 0}
         className="self-end"
       >
-        <Sparkles />
+        {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
         {isGenerating ? "Generating…" : "Generate"}
       </Button>
     </div>

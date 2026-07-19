@@ -1,7 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DrizzlePreview } from "@/components/dashboard/drizzle-preview"
-import { JsonPreview } from "@/components/dashboard/json-preview"
-import { SqlPreview } from "@/components/dashboard/sql-preview"
+import { CodeViewer } from "@/components/dashboard/code-viewer"
 import type { GeneratedSchema } from "@/types/schema"
 
 export function OutputTabs({ result }: { result: GeneratedSchema }) {
@@ -13,13 +11,13 @@ export function OutputTabs({ result }: { result: GeneratedSchema }) {
         <TabsTrigger value="json">JSON</TabsTrigger>
       </TabsList>
       <TabsContent value="sql">
-        <SqlPreview sql={result.sql} />
+        <CodeViewer content={result.sql} variant="sql" />
       </TabsContent>
       <TabsContent value="drizzle">
-        <DrizzlePreview drizzle={result.drizzle} />
+        <CodeViewer content={result.drizzle} variant="drizzle" />
       </TabsContent>
       <TabsContent value="json">
-        <JsonPreview json={result.json} />
+        <CodeViewer content={result.json} variant="json" />
       </TabsContent>
     </Tabs>
   )
