@@ -30,7 +30,7 @@ export function CodeViewer({
           {({ className, style, tokens, getLineProps, getTokenProps }) => (
             <pre
               className={`${className} overflow-x-auto p-4 font-mono text-sm`}
-              style={{ ...style, background: "transparent" }}
+              style={{ ...style, backgroundColor: "transparent" }}
             >
               {tokens.map((line, lineIndex) => (
                 <div key={lineIndex} {...getLineProps({ line })}>
