@@ -30,4 +30,18 @@ export const OUTPUT_CONFIG: Record<OutputVariant, OutputConfig> = {
     mimeType: "application/json",
     language: "json",
   },
+  documentation: {
+    label: "Documentation",
+    filename: "schema-documentation.md",
+    extension: "md",
+    mimeType: "text/markdown",
+    language: "markdown",
+  },
+  mermaid: {
+    label: "Mermaid Diagram",
+    filename: "schema-diagram.mmd",
+    extension: "mmd",
+    mimeType: "text/plain",
+    language: "mermaid",
+  },
 }

@@ -1,3 +1,3 @@
-export type OutputVariant = "sql" | "drizzle" | "json"
+export type OutputVariant = "sql" | "drizzle" | "json" | "documentation" | "mermaid"
 
-export type OutputLanguage = "sql" | "typescript" | "json"
+export type OutputLanguage = "sql" | "typescript" | "json" | "markdown" | "mermaid"
