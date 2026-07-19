@@ -25,7 +25,7 @@ export const OUTPUT_CONFIG: Record<OutputVariant, OutputConfig> = {
   },
   json: {
     label: "Sample JSON",
-    filename: "data.json",
+    filename: "schema.json",
     extension: "json",
     mimeType: "application/json",
     language: "json",
