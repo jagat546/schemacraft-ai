@@ -1,6 +1,18 @@
 -- Row Level Security for SchemaCraft AI. Run after migrations have been
 -- applied. Idempotent (safe to re-run) via drop-then-create per policy.
 
+-- Baseline table privileges ------------------------------------------------
+-- RLS policies only restrict access on top of a base Postgres GRANT; they
+-- never substitute for one. These tables were created via a direct
+-- drizzle-kit migration (connecting as the postgres role), which does not
+-- receive the grants Supabase's Studio auto-applies when a table is
+-- created through the dashboard. Without this, every authenticated
+-- request is denied before any RLS policy is evaluated.
+
+grant select, insert, update, delete
+  on public.profiles, public.projects, public.generations
+  to authenticated;
+
 -- profiles --------------------------------------------------------------
 -- No insert/delete policies: rows are created by the handle_new_user
 -- trigger (triggers.sql) and removed via ON DELETE CASCADE from

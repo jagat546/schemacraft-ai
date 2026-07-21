@@ -29,7 +29,7 @@ export async function DashboardShell() {
           <CardTitle>Prompt</CardTitle>
         </CardHeader>
         <CardContent>
-          <SchemaGenerator />
+          <SchemaGenerator projects={projects} />
         </CardContent>
       </Card>
     </div>
