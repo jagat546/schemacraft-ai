@@ -1,12 +1,15 @@
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { TopNav } from "@/components/layout/top-nav"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { requireUser } from "@/lib/auth/require-user"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  await requireUser()
+
   return (
     <SidebarProvider>
       <AppSidebar />

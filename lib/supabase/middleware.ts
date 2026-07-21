@@ -1,9 +1,9 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-// Session-refresh helper for a future root middleware.ts. Not wired up yet
-// (no route protection in this phase) — kept here so Phase 4+ can import
-// and call it without redesigning the Supabase integration.
+const PROTECTED_PREFIXES = ["/dashboard"]
+const AUTH_PREFIXES = ["/login", "/signup"]
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -26,7 +26,21 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { pathname } = request.nextUrl
+  const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  const isAuthRoute = AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+
+  if (!user && isProtectedRoute) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  if (user && isAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
 
   return supabaseResponse
 }
