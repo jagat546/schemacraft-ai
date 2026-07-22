@@ -13,7 +13,11 @@ export type GenerateSchemaResult =
   | { status: "INVALID_INPUT"; error: string }
 
 const inputSchema = z.object({
-  prompt: z.string().trim().min(1, "Prompt can't be empty."),
+  prompt: z
+    .string()
+    .trim()
+    .min(1, "Prompt can't be empty.")
+    .max(4000, "Prompt is too long. Please keep it under 4000 characters."),
   projectId: z.uuid(),
 })
 

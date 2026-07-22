@@ -19,7 +19,7 @@ export async function createClient() {
             )
           } catch {
             // Called from a Server Component. Ignorable because session
-            // refresh happens in middleware once route protection is added.
+            // refresh already happens in proxy.ts on every request.
           }
         },
       },
