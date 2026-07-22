@@ -25,7 +25,12 @@ export const geminiProvider: AIProviderAdapter = {
         config: {
           systemInstruction: AST_SYSTEM_PROMPT,
           maxOutputTokens: aiConfig.maxTokens,
-          thinkingConfig: { thinkingBudget: 0 },
+          // No thinkingConfig: aiConfig.model is an alias Google can
+          // repoint to a model that rejects thinkingConfig entirely
+          // (confirmed: "gemini-flash-latest" 400s on thinkingBudget: 0,
+          // even 0/"disabled"). Omitting it lets each underlying model use
+          // its own default, at the cost of not being able to force
+          // thinking off for latency/cost on models that do support it.
           responseMimeType: "application/json",
           responseJsonSchema: z.toJSONSchema(canonicalSchemaASTSchema),
           httpOptions: { timeout: aiConfig.requestTimeoutMs },
