@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # actions/setup-node's built-in `cache: npm` handles both restoring
+      # and saving the npm cache (keyed on package-lock.json) — this is
+      # the current officially-recommended way to cache npm dependencies
+      # in GitHub Actions, not a separate manual actions/cache step. A
+      # hand-rolled cache step alongside this would just duplicate what
+      # setup-node already does.
+      #
+      # Node version: 24, matching this project's actual Vercel production
+      # runtime (confirmed via `vercel project inspect`: "Node.js Version
+      # 24.x") and the locally installed dev version (v24.14.0) — both a
+      # closer match to reality than package.json's devDependency on
+      # `@types/node@^20`, which is a stale type-only pin, not a runtime
+      # constraint. Node 24 is also the current Active LTS release.
+      - name: Setup Node and restore npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
