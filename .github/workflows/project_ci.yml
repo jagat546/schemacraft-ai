@@ -1,0 +1,65 @@
+name: Project_CI
+
+on:
+  push:
+    branches:
+      - develop/chirag
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Type Check
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Create Deployment Package
+        run: |
+          mkdir artifact
+
+          cp -R app artifact/ || true
+          cp -R components artifact/ || true
+          cp -R lib artifact/ || true
+          cp -R public artifact/ || true
+          cp -R scripts artifact/ || true
+
+          cp package.json artifact/
+          cp package-lock.json artifact/ || true
+          cp next.config.ts artifact/
+          cp tsconfig.json artifact/
+
+          cp -R .next artifact/
+
+          zip -r schemacraft-build-${{ github.run_number }}.zip artifact
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schemacraft-build-${{ github.run_number }}
+          path: schemacraft-build-${{ github.run_number }}.zip
