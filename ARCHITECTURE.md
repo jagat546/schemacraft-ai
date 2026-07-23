@@ -2,18 +2,178 @@
 
 ## Vision
 
+SchemaCraft AI turns a natural-language description of a data model into a
+complete, internally-consistent set of database artifacts. The core design
+principle: the AI model never generates SQL, a Drizzle model, sample JSON,
+documentation, or a diagram directly. It generates exactly one thing — a
+**Canonical Schema AST** — and everything else is produced from that AST by
+deterministic, independently-testable compilers. This guarantees every
+artifact agrees with every other, because they're all compiled from the same
+source of truth in the same run.
+
 ## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, React Server Components) |
+| Language | TypeScript |
+| Styling | Tailwind CSS + shadcn/ui |
+| AI provider | Google Gemini (`@google/genai`), model `gemini-flash-latest` |
+| Database | Supabase (PostgreSQL + Row Level Security) |
+| ORM (local tooling only) | Drizzle ORM / Drizzle Kit |
+| Diagrams | Mermaid |
+| Testing | Vitest |
+| CI | GitHub Actions |
+| Hosting | Vercel |
 
 ## Folder Structure
 
-## Decisions
+```
+app/
+  (auth)/login, (auth)/signup      — auth routes
+  dashboard/                       — main application
+  page.tsx, layout.tsx, globals.css — root shell
 
-## ADR-001 — Database Foundation
+components/
+  auth/                            — login/signup forms
+  dashboard/                       — schema generator, output tabs, viewers, projects panel
+  layout/                          — sidebar, theme toggle, top nav
+  providers/                       — theme + toast providers
+  ui/                              — shadcn/ui primitives
 
-Status: Accepted
+lib/
+  actions/                         — Server Action boundary ("use server")
+  services/generation.service.ts   — pipeline orchestrator
+  ai/
+    client.ts                      — shared GoogleGenAI instance
+    providers/                     — AIProviderAdapter contract + Gemini implementation
+  ast/                             — AST schema, types, validator, semantic analyzer
+  compiler/                        — 5 compilers + shared helpers + registry
+  repositories/                    — RLS-backed Supabase data access
+  supabase/                        — browser / server / middleware clients
+  auth/                            — auth helpers
+  db/                              — Drizzle schema definitions (local tooling only)
 
-Database hierarchy:
+types/
+  schema.ts                        — GeneratedSchema, the persistence/API contract
+  ui.ts                            — UI-only types
 
+supabase/
+  rls.sql, triggers.sql            — Row Level Security policies, signup trigger
+
+proxy.ts                           — Next.js 16 root proxy (auth route protection)
+drizzle.config.ts                  — Drizzle Kit config (local migrations only)
+test/, lib/**/*.test.ts            — Vitest test suites (149 tests)
+.github/workflows/ci.yml           — GitHub Actions CI
+docs/architecture/sprint5-ast.md   — detailed AST/compiler pipeline design doc
+```
+
+## The AI Pipeline
+
+```
+Prompt (UI)
+   │
+   ▼
+Server Action (lib/actions/generate-schema.ts)
+   │  auth check, zod validation (prompt 1–4000 chars, project ownership)
+   ▼
+Gemini Provider (lib/ai/providers/gemini.ts)
+   │  genAI.models.generateContent() constrained by responseJsonSchema
+   │  to the Canonical Schema AST shape — the model can only return an AST
+   ▼
+Canonical Schema AST (unvalidated JSON at this point)
+   ▼
+Shape Validation (lib/ast/validator.ts)
+   │  Zod structural check + astVersion support check
+   ▼
+Semantic Analysis (lib/ast/analyzer.ts)
+   │  pure, deterministic, never throws — duplicate names, dangling FKs,
+   │  unsafe expressions (errors); missing PK, reserved keywords,
+   │  circular FKs (warnings)
+   ▼
+Compiler Registry (lib/compiler) — compileAll(ast)
+   ├──▶ SQL         (lib/compiler/sql)
+   ├──▶ Drizzle     (lib/compiler/drizzle)
+   ├──▶ JSON        (lib/compiler/json)
+   ├──▶ Markdown    (lib/compiler/markdown)
+   └──▶ Mermaid     (lib/compiler/mermaid)
+   ▼
+buildGeneratedArtifacts() — maps compiler output to GeneratedSchema
+   ▼
+Persistence (lib/repositories/generation.repository.ts) — Supabase insert
+   ▼
+UI renders all 5 tabs (SQL / Drizzle / JSON / Documentation / Mermaid)
+```
+
+## The Canonical Schema AST
+
+Defined once as a Zod schema (`lib/ast/schema.ts`), with TypeScript types
+derived via `z.infer` (`lib/ast/types.ts`) — no hand-written duplicate
+interface that could drift from it. The AST is intentionally
+database-agnostic: tables, columns, relationships, indexes, constraints,
+defaults, nullability, and primary keys, with no concept of "Postgres" or
+"Drizzle" baked in. `CanonicalSchemaAST.astVersion` versions the shape of
+the AST itself, independent of the app's own release version.
+
+## Compiler Registry
+
+`CompilerRegistry` (`lib/compiler/registry.ts`) is a register/get/list map
+from `CompilerId` to `SchemaCompiler` instance. `createCompilerRegistry()`
+(`lib/compiler/index.ts`) is a factory that returns a fresh registry with
+all five compilers pre-registered — importing `lib/compiler` has no side
+effects; a registry is only created when a generation actually runs.
+`compileAll(ast)` runs every compiler against the same AST; one compiler's
+failure (`{ ok: false }`) never blocks the others, since failure is
+represented in the result, not thrown.
+
+Every compiler shares the same guarantee: a pure function, no network
+calls, no filesystem access, no mutation of the input AST, and no
+non-deterministic input (`Math.random`, `Date.now`, crypto) — the same AST
+always produces byte-identical output.
+
+### SQL Compiler (`lib/compiler/sql`)
+
+The reference implementation. Produces `CREATE TABLE` statements (with
+resolved primary keys and table-level constraints), `CREATE [UNIQUE]
+INDEX` statements, and foreign keys as `ALTER TABLE ... ADD CONSTRAINT`
+statements emitted after every table (so declaration order never matters).
+Every identifier is double-quoted; `enum` columns compile to `TEXT` + a
+`CHECK` constraint rather than a native Postgres `ENUM` type.
+
+### Drizzle Compiler (`lib/compiler/drizzle`)
+
+Targets `drizzle-orm` 0.45.x and matches this project's own schema
+conventions: snake_case column names, camelCase properties, the 3-argument
+`pgTable` form when a table needs indexes/composite keys/table-level
+constraints. Single-column relationships get a physical
+`.references(() => ...)` plus a `relations()` entry; composite
+relationships get a `relations()` entry only (a deliberate scope cut to
+avoid needing topological table ordering).
+
+### JSON Compiler (`lib/compiler/json`)
+
+Produces 3 deterministic sample rows per table in two passes: base values
+first (type-shaped placeholders, ignoring relationships), then a second
+pass overwrites foreign-key columns with real values from the referenced
+table's rows — so relational correctness holds regardless of table
+declaration order.
+
+### Markdown Compiler (`lib/compiler/markdown`)
+
+Produces a `# Schema Documentation` overview, a table of contents, one
+`##` section per table (columns, indexes, constraints), and a global
+`## Relationships` section.
+
+### Mermaid Compiler (`lib/compiler/mermaid`)
+
+Produces a single `erDiagram` block, rendered client-side in the browser.
+Infers PK/FK/UK tags (one per column, PK beats FK beats UK) and
+relationship cardinality (one-to-one only when every source column is
+individually unique, one-to-many otherwise).
+
+## Database (Supabase)
+
+```
 auth.users
     ↓
 profiles
@@ -21,69 +181,48 @@ profiles
 projects
     ↓
 generations
+```
 
-Storage Strategy:
-- GeneratedSchema persisted as JSONB
-- GeneratedSchema remains the application contract
-- No decomposition of artifacts into relational columns
-
-Security:
-- Row Level Security enabled
-- Explicit SELECT / INSERT / UPDATE / DELETE policies
-- Ownership enforced through auth.uid()
-
-Constraints:
-- UUID primary keys
-- Cascade deletes
-- Unique(project_id, version_number)
-
-Implementation Notes:
-- profiles.id → auth.users(id) foreign key maintained via SQL because of current Drizzle/Supabase migration limitations.
-
-## ADR-002 — Runtime Data Access
-
-**Status**
-
-Accepted
-
-### Decision
-
-Runtime data access uses the authenticated Supabase Server Client.
-
-Drizzle ORM is responsible only for:
-
-- Schema definitions
-- Relations
-- Migrations
-- Compile-time type safety
-
-Repositories execute authenticated runtime queries through the Supabase Server Client so that Supabase Row Level Security (RLS) policies operate exactly as designed.
-
-### Rationale
-
-Supabase RLS depends on `auth.uid()`, which is populated from authenticated request context.
-
-Raw postgres.js / Drizzle runtime connections do not automatically propagate authenticated user context.
-
-Using the Supabase Server Client for runtime queries preserves native RLS behavior without custom JWT propagation or application-layer ownership filtering.
-
-### Consequences
-
-- Runtime repositories do not execute Drizzle queries.
-- Drizzle remains the single source of truth for database schema.
-- Runtime authorization is enforced by Supabase RLS.
-- Repository methods will be implemented in Sprint 3 – Phase 5.
-
-### ADR-003
-Why Drizzle?
-
-### ADR-004
-Why Supabase?
-
-...
-
-## Database
+- `GeneratedSchema` (all 5 artifacts) is persisted as a single `JSONB`
+  column — the application contract, not decomposed into relational
+  columns.
+- **Row Level Security is the sole authorization mechanism.** Every table
+  has explicit SELECT/INSERT/UPDATE/DELETE policies; ownership is enforced
+  through `auth.uid()`, with no application-layer ownership filtering.
+- Runtime data access goes through the authenticated **Supabase Server
+  Client**, not raw Drizzle queries — this is required for RLS policies to
+  see the authenticated user's `auth.uid()`. Drizzle ORM is used only for
+  schema definitions, relations, and local migrations; it has no runtime
+  request-path role.
 
 ## Authentication
 
+Supabase Auth via `@supabase/ssr`. Session-cookie handling is split across
+`lib/supabase/{client,server,middleware}.ts`; route protection runs through
+the Next.js 16 root proxy file (`proxy.ts`).
+
+## Testing Architecture
+
+149 automated tests across 9 files, run with **Vitest**:
+
+- `lib/ast/validator.test.ts` (21) — shape validation, malformed input, version checks
+- `lib/ast/analyzer.test.ts` (24) — one test per error/warning code, plus regression cases
+- `lib/compiler/{sql,drizzle,json,markdown,mermaid}/*.test.ts` (138) — happy path, determinism, and a regression test per compiler
+- `lib/services/generation.service.test.ts` (11) — integration tests for `buildGeneratedArtifacts`, the seam between compiler output and the persistence contract
+
+Compiler tests use hand-written expected-output assertions, not snapshots
+— since every compiler's entire design promise is deterministic,
+human-reviewable output, a snapshot test would just rubber-stamp whatever
+the compiler currently emits, including an unintended change.
+
+## GitHub Actions CI
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+checkout → Node 24 setup (with npm cache) → `npm ci` → lint → typecheck →
+test → build. All four checks must pass; there is no deploy step, no test
+matrix, and no coverage upload — deliberately minimal.
+
 ## Future Roadmap
+
+See [`docs/planning/v0.7.1-roadmap.md`](./docs/planning/v0.7.1-roadmap.md)
+for the full milestone-by-milestone technical roadmap beyond Milestone 1.

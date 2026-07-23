@@ -1,7 +1,28 @@
 {
   "name": "schemacraft-ai",
-  "version": "0.1.0",
+  "version": "0.7.1",
   "private": true,
+  "description": "AI-powered developer tool that converts natural language prompts into SQL schemas, Drizzle ORM models, sample JSON, Markdown documentation, and Mermaid ER diagrams.",
+  "homepage": "https://schemacraft-ai.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jagat546/schemacraft-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jagat546/schemacraft-ai/issues"
+  },
+  "keywords": [
+    "sql",
+    "schema-generator",
+    "drizzle-orm",
+    "gemini",
+    "ai",
+    "postgresql",
+    "supabase",
+    "nextjs"
+  ],
+  "author": "Jagat Jyoti Mishra",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

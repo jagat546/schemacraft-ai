@@ -21,7 +21,7 @@ from natural language prompts.
 - shadcn/ui
 - App Router
 - React Server Components
-- Anthropic SDK
+- Google Gemini (`@google/genai`)
 - Supabase
 - Drizzle ORM
 
@@ -40,8 +40,6 @@ from natural language prompts.
 
 ## Folder Structure
 
-src/
-
 app/
 
 components/
@@ -50,7 +48,7 @@ lib/
 
 types/
 
-hooks/
+supabase/
 
 ---
 
