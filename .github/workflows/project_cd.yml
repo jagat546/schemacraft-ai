@@ -6,7 +6,7 @@ on:
       branch:
         description: "Git Branch"
         required: true
-        default: "develop/chirag"
+        default: "main"
 
       build_number:
         description: "CI Build Number"
