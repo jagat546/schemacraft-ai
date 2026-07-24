@@ -166,6 +166,21 @@ store either.
   backend stage-event source exists to drive a real one and a simulated
   one would misrepresent actual progress. No `TECH_DEBT.md` item touches
   this display logic; none integrated this day.
+
+  **Regression caught and fixed during this milestone's verification, not
+  a new Day 4 defect:** live browser testing (authenticated session, real
+  reload) showed the project selector briefly display its "Select a
+  project" placeholder before flipping to the correct default project.
+  Root cause traced to Day 3: the pre-refactor code set the default
+  selected project synchronously via a `useState(projects[0]?.id ?? null)`
+  initializer; the refactored version moved that into `project-store`,
+  populated by a `useEffect`, which runs one paint after the initializer
+  would have. Fixed in `schema-generator.tsx` by falling back to
+  `projects[0]?.id` synchronously during render whenever the store's
+  `selectedProjectId` is still `null`, matching the original behavior
+  exactly rather than waiting on the effect. Re-verified with three
+  consecutive fresh reloads showing the correct project immediately, and
+  the full lint/typecheck/test/build gate re-run clean afterward.
 - **Day 5 — Developer Workbench.** Not started.
 - **Day 6 — Projects.** Not started.
 - **Day 7 — Polish.** Not started.
