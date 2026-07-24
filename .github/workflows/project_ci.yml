@@ -10,11 +10,11 @@ permissions:
 
 jobs:
   build:
+    name: Build Application
 
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -23,6 +23,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Display Build Information
+        run: |
+          echo "========================================"
+          echo "Project Name : SchemaCraft AI"
+          echo "Build Number : ${{ github.run_number }}"
+          echo "Branch       : ${{ github.ref_name }}"
+          echo "Commit       : ${{ github.sha }}"
+          echo "========================================"
 
       - name: Install Dependencies
         run: npm ci
@@ -39,27 +48,31 @@ jobs:
       - name: Build Application
         run: npm run build
 
+      - name: Verify Standalone Build
+        run: |
+          ls -la .next
+          ls -la .next/standalone
+          ls -la .next/static
+
       - name: Create Deployment Package
         run: |
-          mkdir artifact
+          mkdir deployment
 
-          cp -R app artifact/ || true
-          cp -R components artifact/ || true
-          cp -R lib artifact/ || true
-          cp -R public artifact/ || true
-          cp -R scripts artifact/ || true
+          cp -R .next/standalone deployment/
+          cp -R .next/static deployment/.next
+          cp -R public deployment/
 
-          cp package.json artifact/
-          cp package-lock.json artifact/ || true
-          cp next.config.ts artifact/
-          cp tsconfig.json artifact/
+          cp package.json deployment/
 
-          cp -R .next artifact/
+          cp -R .next deployment/
 
-          zip -r schemacraft-build-${{ github.run_number }}.zip artifact
+          cd deployment
+
+          zip -r ../schemacraft-build-${{ github.run_number }}.zip .
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: schemacraft-build-${{ github.run_number }}
           path: schemacraft-build-${{ github.run_number }}.zip
+          retention-days: 30
