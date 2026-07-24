@@ -1,0 +1,78 @@
+name: Project_CI
+
+on:
+  push:
+    branches:
+      - develop/chirag
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Application
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Display Build Information
+        run: |
+          echo "========================================"
+          echo "Project Name : SchemaCraft AI"
+          echo "Build Number : ${{ github.run_number }}"
+          echo "Branch       : ${{ github.ref_name }}"
+          echo "Commit       : ${{ github.sha }}"
+          echo "========================================"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Type Check
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Verify Standalone Build
+        run: |
+          ls -la .next
+          ls -la .next/standalone
+          ls -la .next/static
+
+      - name: Create Deployment Package
+        run: |
+          mkdir deployment
+
+          cp -R .next/standalone deployment/
+          cp -R .next/static deployment/.next
+          cp -R public deployment/
+
+          cp package.json deployment/
+
+          cp -R .next deployment/
+
+          cd deployment
+
+          zip -r ../schemacraft-build-${{ github.run_number }}.zip .
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schemacraft-build-${{ github.run_number }}
+          path: schemacraft-build-${{ github.run_number }}.zip
+          retention-days: 30
