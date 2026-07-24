@@ -1,7 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
-
 import {
   Select,
   SelectContent,
@@ -14,28 +12,11 @@ import { PromptEditor } from "@/features/ai-workspace/components/prompt-editor"
 import { useGenerateSchema } from "@/features/ai-workspace/hooks/use-generate-schema"
 import { OutputTabs } from "@/features/workbench/components/output-tabs"
 import type { Project } from "@/lib/repositories/project.repository"
-import { useProjectStore } from "@/lib/stores/project-store"
+import { useProjectSelection } from "@/lib/stores/use-project-selection"
 
 export function SchemaGenerator({ projects }: { projects: Project[] }) {
-  const setProjects = useProjectStore((store) => store.setProjects)
-  const storeSelectedProjectId = useProjectStore((store) => store.selectedProjectId)
-  const selectProject = useProjectStore((store) => store.selectProject)
+  const { selectedProjectId, selectProject } = useProjectSelection(projects)
   const { prompt, setPrompt, state, generate } = useGenerateSchema()
-
-  // project-store is a client-side mirror of the server-fetched `projects`
-  // prop (see docs/architecture/frontend-modularization.md) — this keeps
-  // it in sync whenever DashboardShell re-fetches (e.g. after creating a
-  // project triggers router.refresh()).
-  useEffect(() => {
-    setProjects(projects)
-  }, [projects, setProjects])
-
-  // Falls back to the first project synchronously during render, matching
-  // the pre-refactor useState(projects[0]?.id ?? null) initializer exactly.
-  // Without this, the store's selectedProjectId is still null for the one
-  // frame before the effect above runs, and the selector briefly shows its
-  // placeholder instead of the default project.
-  const selectedProjectId = storeSelectedProjectId ?? projects[0]?.id ?? null
 
   function handleGenerate() {
     generate(selectedProjectId)

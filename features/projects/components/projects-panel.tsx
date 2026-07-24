@@ -1,13 +1,12 @@
 "use client"
 
-import { useEffect } from "react"
 import { FolderOpen } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog"
 import { ProjectCard } from "@/features/projects/components/project-card"
 import type { Project } from "@/lib/repositories/project.repository"
-import { useProjectStore } from "@/lib/stores/project-store"
+import { useProjectSelection } from "@/lib/stores/use-project-selection"
 
 export function ProjectsPanel({
   initialProjects,
@@ -16,23 +15,7 @@ export function ProjectsPanel({
   initialProjects: Project[]
   loadError?: string
 }) {
-  const setProjects = useProjectStore((store) => store.setProjects)
-  const storeSelectedProjectId = useProjectStore((store) => store.selectedProjectId)
-
-  // Same server-props-hydration pattern as SchemaGenerator (see
-  // docs/architecture/frontend-modularization.md) — both components
-  // receive the same DashboardShell-fetched array and independently sync
-  // it into project-store; idempotent, so this is safe even though
-  // SchemaGenerator also does it.
-  useEffect(() => {
-    setProjects(initialProjects)
-  }, [initialProjects, setProjects])
-
-  // Falls back to the first project synchronously during render, same
-  // reasoning as the Day 4 fix in schema-generator.tsx: without this, no
-  // card would show as selected for the one frame before the effect
-  // above runs.
-  const selectedProjectId = storeSelectedProjectId ?? initialProjects[0]?.id ?? null
+  const { selectedProjectId } = useProjectSelection(initialProjects)
 
   return (
     <div className="flex flex-col gap-4">
