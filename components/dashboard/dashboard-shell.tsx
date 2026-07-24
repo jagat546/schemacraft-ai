@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProjectsPanel } from "@/components/dashboard/projects-panel"
 import { SchemaGenerator } from "@/features/ai-workspace/components/schema-generator"
+import { ProjectsPanel } from "@/features/projects/components/projects-panel"
 import { getProjectsAction } from "@/lib/actions/project.actions"
 
 export async function DashboardShell() {

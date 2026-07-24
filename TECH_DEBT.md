@@ -136,13 +136,17 @@ The server enforces a 4000-character cap with a clear rejection message, but the
 
 "Testing", "dsasasas", "sample test" — QA artifacts from the v0.7.0/v0.7.1 release cycles, not yet cleaned up. Tracked as part of v0.7.1 Milestone 4 acceptance criteria (requires explicit confirmation before deleting production data).
 
-## TD-016 — Project cards on the dashboard are non-interactive
+## TD-016 — Project cards on the dashboard are non-interactive — RESOLVED
 
-**Where:** `components/dashboard/projects-panel.tsx` (dashboard project cards)
+**Where:** `features/projects/components/project-card.tsx` (moved from `components/dashboard/projects-panel.tsx`)
 
 **Priority:** High
 
-Found during the v0.7.1 production end-to-end validation pass: project cards ("Testing", "dsasasas", etc.) render as plain, non-interactive elements — no role, no `tabindex`, no click handler, no `cursor: pointer`. Clicking one does not navigate anywhere, and they are unreachable via keyboard. Users currently have no way to open or manage an existing project from the dashboard. Not yet assigned to a milestone.
+Found during the v0.7.1 production end-to-end validation pass: project cards ("Testing", "dsasasas", etc.) render as plain, non-interactive elements — no role, no `tabindex`, no click handler, no `cursor: pointer`. Clicking one does not navigate anywhere, and they are unreachable via keyboard.
+
+**Root cause:** the click/select behavior was simply never wired up. `project-store` (added in the frontend modularization's Day 1) already existed as the shared source of truth for "which project is active," and the AI Workspace's project selector already read from it — the dashboard cards just never wrote to it.
+
+**Fix (frontend modularization, Day 6):** `ProjectCard` is now a real interactive element — `role="button"`, `tabIndex={0}`, `onClick`/`onKeyDown` (Enter/Space), `aria-pressed`, and a visible selected-state ring — that calls `project-store`'s `selectProject(id)`. Selecting a card immediately updates the AI Workspace's own project dropdown, since both read the same store. This does not add a project detail page or navigation route (none exists yet, and building one is outside this milestone's scope) — it makes the existing "which project is my next generation for" mechanism reachable from the dashboard's card grid, not just the dropdown. See `docs/architecture/frontend-modularization.md` Day 6 entry.
 
 ## TD-017 — Vercel "Sensitive" environment variables are opaque to CLI inspection
 

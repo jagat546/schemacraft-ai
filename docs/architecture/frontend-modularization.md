@@ -52,7 +52,7 @@ system this refactor sits on top of and does not change.
 | `features/ai-workspace` | `PromptEditor`, the generation-triggering part of `SchemaGenerator` | Prompt Templates, Prompt Enhancement |
 | `features/compiler` | The generation status display (`GenerationStatus`: idle / generating / error) | Pipeline Stepper, Live Logs, per-stage progress, any "compiler status" indicator finer-grained than idle/generating/error — there is no backend event stream to visualize; the pipeline (§7 of `ARCHITECTURE.md`) currently returns one final result, not intermediate stage events. Confirmed again on Day 4: no `v0.8.0` architecture document exists in this repo to define one, and building a real stage-by-stage indicator would require backend instrumentation, which is out of scope. A simulated/fake stepper was considered and rejected — it would show stages that aren't actually happening. |
 | `features/workbench` | `OutputTabs`, `CodeViewer`, `MarkdownViewer`, `MermaidViewer`, `OutputActions`, `OutputSkeleton`, `output-config.ts` | — |
-| `features/projects` | `ProjectsPanel` | Search, Favorites |
+| `features/projects` | `ProjectsPanel`, `ProjectCard` (now selectable, TD-016), `CreateProjectDialog` | Search, Favorites, any project detail page/route (none exists) |
 
 `components/ui/*` (shadcn primitives) and `components/providers/*`
 (theme/toast) are not feature-owned and stay where they are — they're
@@ -215,6 +215,36 @@ store either.
 
   No `TECH_DEBT.md` item touches any file moved or edited this day;
   none integrated.
-- **Day 6 — Projects.** Not started.
-- **Day 6 — Projects.** Not started.
+- **Day 6 — Projects.** ✅ Moved `ProjectsPanel` into
+  `features/projects/components/`, and split it into three pieces: the
+  panel itself (composition + `project-store` hydration), the new
+  `ProjectCard` (TD-016 fix, below), and `CreateProjectDialog`. Extracted
+  the `createProjectAction` call and its dialog-state/toast/refresh side
+  effects out of the panel into `features/projects/hooks/
+  use-create-project.ts` — the same boundary as
+  `use-generate-schema.ts` (Day 3). On success, the hook calls
+  `project-store`'s `addProject` so the new project appears immediately
+  without waiting for the `router.refresh()` round trip.
+
+  **Integrated: TD-016** (project cards were non-interactive). Root
+  cause: the click/select behavior was simply never wired up —
+  `project-store` and the AI Workspace's dropdown reading from it already
+  existed; the dashboard cards just never wrote to it. Fixed by making
+  `ProjectCard` a real interactive element (`role="button"`, `tabIndex`,
+  click/keyboard handlers, `aria-pressed`, a selected-state ring) that
+  calls `selectProject(id)`. Deliberately scoped to *selection*, not
+  navigation: there is no project detail page/route in this app, and
+  building one would be new functionality outside this milestone, not a
+  bug fix. Verified the resolved bug's specific symptom no longer holds:
+  cards are keyboard-reachable, `aria-pressed` reflects state, and
+  clicking one is visible immediately in the AI Workspace's own selector.
+
+  Same synchronous-fallback pattern as the Day 4 regression fix applied
+  here proactively (not reactively) in `ProjectsPanel`, computing
+  `selectedProjectId` during render rather than waiting on the hydration
+  effect — avoids reintroducing that flash for "no card highlighted for
+  one frame" on a fresh load.
+
+  Search and Favorites remain deferred (§ Scope decisions). No new route
+  or project detail page was added.
 - **Day 7 — Polish.** Not started.
