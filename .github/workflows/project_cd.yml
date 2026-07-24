@@ -6,7 +6,7 @@ on:
       branch:
         description: "Git Branch"
         required: true
-        default: "main"
+        default: "develop/chirag"
 
       build_number:
         description: "CI Build Number"
@@ -20,7 +20,7 @@ jobs:
 
   deploy:
 
-    name: Deploy Build
+    name: Deploy Application
 
     runs-on: ubuntu-latest
 
@@ -39,7 +39,6 @@ jobs:
           echo "========================================"
 
       - name: Get Artifact Information
-        id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -67,9 +66,69 @@ jobs:
           -H "Authorization: Bearer ${{ github.token }}" \
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/artifacts/$ARTIFACT_ID/zip \
-          -o schemacraft-build-${{ github.event.inputs.build_number }}.zip
+          -o schemacraft-build.zip
 
       - name: Verify Artifact
         run: |
           ls -lh
-          unzip -l schemacraft-build-${{ github.event.inputs.build_number }}.zip
+          unzip -l schemacraft-build.zip
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Upload Build to EC2
+        run: |
+          scp schemacraft-build.zip \
+          ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/tmp/
+
+      - name: Deploy Application
+        run: |
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
+
+          set -e
+
+          cd /opt
+
+          rm -rf schemacraft-ai-new
+
+          mkdir schemacraft-ai-new
+
+          unzip -o /tmp/schemacraft-build.zip -d schemacraft-ai-new
+
+          cd schemacraft-ai-new
+
+          unzip -o schemacraft-build-*.zip
+
+          npm ci
+
+          npm run build
+
+          cp /opt/schemacraft-ai/.env .
+
+          rm -rf /opt/schemacraft-ai-old
+
+          mv /opt/schemacraft-ai /opt/schemacraft-ai-old
+
+          mv /opt/schemacraft-ai-new /opt/schemacraft-ai
+
+          cd /opt/schemacraft-ai
+
+          pm2 delete schemacraft-ai || true
+
+          pm2 start npm --name schemacraft-ai -- start
+
+          pm2 save
+
+          EOF
+
+      - name: Verify Deployment
+        run: |
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
+          "pm2 status && curl -I http://localhost:3000"
