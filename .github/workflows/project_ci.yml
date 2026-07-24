@@ -1,9 +1,13 @@
 name: Project_CI
 
 on:
-  push:
-    branches:
-      - develop/chirag
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build"
+        required: true
+        default: "develop/chirag"
+        type: string
 
 permissions:
   contents: read
@@ -11,27 +15,32 @@ permissions:
 jobs:
   build:
     name: Build Application
-
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
 
       - name: Display Build Information
         run: |
           echo "========================================"
           echo "Project Name : SchemaCraft AI"
-          echo "Build Number : ${{ github.run_number }}"
-          echo "Branch       : ${{ github.ref_name }}"
-          echo "Commit       : ${{ github.sha }}"
+          echo "Workflow     : Project_CI"
+          echo "Run Number   : ${{ github.run_number }}"
+          echo "Run ID       : ${{ github.run_id }}"
+          echo "Triggered By : ${{ github.actor }}"
+          echo "Branch       : ${{ github.event.inputs.branch }}"
+          echo "Commit SHA   : $(git rev-parse --short HEAD)"
           echo "========================================"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
 
       - name: Install Dependencies
         run: npm ci
@@ -48,27 +57,21 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Verify Standalone Build
+      - name: Show Build Output
         run: |
-          ls -la .next
-          ls -la .next/standalone
-          ls -la .next/static
+          echo "Build completed successfully."
+          ls -la
+          if [ -d "dist" ]; then
+            echo "dist directory found"
+            ls -la dist
+          fi
 
       - name: Create Deployment Package
         run: |
-          mkdir deployment
-
-          cp -R .next/standalone deployment/
-          cp -R .next/static deployment/.next
-          cp -R public deployment/
-
-          cp package.json deployment/
-
-          cp -R .next deployment/
-
-          cd deployment
-
-          zip -r ../schemacraft-build-${{ github.run_number }}.zip .
+          zip -r schemacraft-build-${{ github.run_number }}.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "node_modules/*"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
@@ -76,3 +79,11 @@ jobs:
           name: schemacraft-build-${{ github.run_number }}
           path: schemacraft-build-${{ github.run_number }}.zip
           retention-days: 30
+
+      - name: Build Summary
+        run: |
+          echo "========================================"
+          echo "CI Pipeline Completed Successfully"
+          echo "Artifact : schemacraft-build-${{ github.run_number }}"
+          echo "Branch   : ${{ github.event.inputs.branch }}"
+          echo "========================================"
