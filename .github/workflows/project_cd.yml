@@ -2,26 +2,39 @@ name: Project CD
 
 on:
   workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Enter CI Build Number (Example: 6)"
+        required: true
+        type: string
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download latest CI artifact
+      - name: Download Selected Build Artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
 
+          echo "=================================="
+          echo "Project CD Started"
+          echo "Build : ${{ github.event.inputs.build_number }}"
+          echo "=================================="
+
           RUN_ID=$(gh run list \
             --workflow "Project CI" \
             --branch develop/chirag \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId')
+            --json databaseId,displayTitle \
+            --limit 100 \
+            --jq '.[] | select(.displayTitle=="Build #${{ github.event.inputs.build_number }}") | .databaseId' \
+            | head -1)
+
+          if [ -z "$RUN_ID" ]; then
+            echo "CI Run not found for Build #${{ github.event.inputs.build_number }}"
+            exit 1
+          fi
 
           echo "Run ID : $RUN_ID"
 
@@ -37,7 +50,7 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip \
             -o schemacraft-build.zip
 
-      - name: Copy artifact to EC2
+      - name: Copy Artifact to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -46,7 +59,7 @@ jobs:
           source: "schemacraft-build.zip"
           target: "/tmp"
 
-      - name: Deploy
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -55,7 +68,6 @@ jobs:
           script: |
 
             sudo mkdir -p /opt/schemacraft-ai
-
             sudo chown -R $USER:$USER /opt/schemacraft-ai
 
             cd /opt/schemacraft-ai
@@ -68,8 +80,10 @@ jobs:
 
             pm2 delete schemacraft-ai || true
 
-            pm2 start npm \
-              --name schemacraft-ai \
-              -- start
+            pm2 start npm --name schemacraft-ai -- start
 
             pm2 save
+
+            echo "=================================="
+            echo "Deployment Completed Successfully"
+            echo "=================================="
