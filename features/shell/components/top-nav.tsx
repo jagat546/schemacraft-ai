@@ -1,6 +1,6 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { ThemeToggle } from "@/components/layout/theme-toggle"
+import { ThemeToggle } from "@/features/shell/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { signOut } from "@/lib/actions/auth"
 import { getCurrentUser } from "@/lib/auth/current-user"

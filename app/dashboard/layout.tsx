@@ -1,5 +1,5 @@
-import { AppSidebar } from "@/components/layout/app-sidebar"
-import { TopNav } from "@/components/layout/top-nav"
+import { AppSidebar } from "@/features/shell/components/app-sidebar"
+import { TopNav } from "@/features/shell/components/top-nav"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { requireUser } from "@/lib/auth/require-user"
 

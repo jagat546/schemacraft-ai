@@ -108,7 +108,24 @@ store either.
   stores above with colocated tests (all passing); wrote this document.
   No component moved, no behavior changed — `npm run build`, `npm run
   lint`, and `npm test` all verified clean before and after.
-- **Day 2 — Navigation.** Not started.
+- **Day 2 — Navigation.** ✅ Moved `AppSidebar`, `TopNav`, and
+  `ThemeToggle` from `components/layout/` into `features/shell/components/`
+  (via `git mv`, preserving history) and updated the two import sites
+  (`app/dashboard/layout.tsx`, `top-nav.tsx`'s own import of
+  `ThemeToggle`). No `hooks/`, `types/`, or `actions/` subfolder was
+  created for this module — deliberately, not an oversight: `AppSidebar`
+  is static presentational markup, `TopNav` is an async Server Component
+  doing idiomatic direct data-fetching (`getCurrentUser()`, the pattern
+  `CLAUDE.md` explicitly prefers), and `ThemeToggle` only calls
+  `next-themes`' own `useTheme()` hook directly — none of that is
+  "business logic in a component" in the sense the architecture rules
+  mean; it's framework-idiomatic RSC/hook usage with nothing to extract.
+  Command Palette and Status Bar remain deferred (§ Scope decisions).
+  Sign-out stays a native `<form action={signOut}>` — Next.js's own
+  zero-JS mutation pattern — rather than being wrapped in an artificial
+  client hook. No `TECH_DEBT.md` item touches `app-sidebar.tsx`,
+  `top-nav.tsx`, or `theme-toggle.tsx`; none were integrated this day.
+- **Day 3 — AI Workspace.** Not started.
 - **Day 3 — AI Workspace.** Not started.
 - **Day 4 — Compiler Experience.** Not started.
 - **Day 5 — Developer Workbench.** Not started.
