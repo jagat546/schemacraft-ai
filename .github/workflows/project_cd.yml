@@ -4,46 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Git Branch"
+        description: "Branch Name"
         required: true
         default: "develop/chirag"
 
       build_number:
-        description: "CI Build Number"
+        description: "Build Number"
         required: true
-
-permissions:
-  contents: read
-  actions: read
 
 jobs:
   deploy:
-
-    name: Deploy Build
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Display Deployment Information
         run: |
-          echo "========================================"
-          echo "Project Name : SchemaCraft AI"
-          echo "Branch       : ${{ github.event.inputs.branch }}"
-          echo "Build Number : ${{ github.event.inputs.build_number }}"
-          echo "========================================"
-
-      - name: Download Build Artifact
-        uses: dawidd6/action-download-artifact@v11
-        with:
-          workflow: project_ci.yml
-          branch: ${{ github.event.inputs.branch }}
-          run_number: ${{ github.event.inputs.build_number }}
-          name: schemacraft-build-${{ github.event.inputs.build_number }}
-
-      - name: Verify Artifact
-        run: |
-          echo "Downloaded Files"
-          ls -lah
-
-          unzip -l schemacraft-build-${{ github.event.inputs.build_number }}.zip
+          echo "=================================="
+          echo "Project CD Started"
+          echo "Branch : ${{ github.event.inputs.branch }}"
+          echo "Build  : ${{ github.event.inputs.build_number }}"
+          echo "=================================="
