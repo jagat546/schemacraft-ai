@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useEffect } from "react"
 
 import { OutputSkeleton } from "@/components/dashboard/output-skeleton"
 import { OutputTabs } from "@/components/dashboard/output-tabs"
-import { PromptEditor } from "@/components/dashboard/prompt-editor"
 import {
   Select,
   SelectContent,
@@ -13,38 +11,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { generateSchema } from "@/lib/actions/generate-schema"
+import { PromptEditor } from "@/features/ai-workspace/components/prompt-editor"
+import { useGenerateSchema } from "@/features/ai-workspace/hooks/use-generate-schema"
 import type { Project } from "@/lib/repositories/project.repository"
-import type { GeneratedSchema } from "@/types/schema"
-
-type GenerationState =
-  | { status: "idle" }
-  | { status: "generating" }
-  | { status: "success"; data: GeneratedSchema }
-  | { status: "error"; message: string }
+import { useProjectStore } from "@/lib/stores/project-store"
 
 export function SchemaGenerator({ projects }: { projects: Project[] }) {
-  const [prompt, setPrompt] = useState("")
-  const [projectId, setProjectId] = useState<string | null>(projects[0]?.id ?? null)
-  const [state, setState] = useState<GenerationState>({ status: "idle" })
-  const [, startTransition] = useTransition()
+  const setProjects = useProjectStore((store) => store.setProjects)
+  const selectedProjectId = useProjectStore((store) => store.selectedProjectId)
+  const selectProject = useProjectStore((store) => store.selectProject)
+  const { prompt, setPrompt, state, generate } = useGenerateSchema()
+
+  // project-store is a client-side mirror of the server-fetched `projects`
+  // prop (see docs/architecture/frontend-modularization.md) — this keeps
+  // it in sync whenever DashboardShell re-fetches (e.g. after creating a
+  // project triggers router.refresh()).
+  useEffect(() => {
+    setProjects(projects)
+  }, [projects, setProjects])
 
   function handleGenerate() {
-    if (!projectId) return
-
-    setState({ status: "generating" })
-    startTransition(async () => {
-      const outcome = await generateSchema(prompt, projectId)
-      if (outcome.status === "SUCCESS" || outcome.status === "GENERATED_NOT_SAVED") {
-        setState({ status: "success", data: outcome.data })
-        if (outcome.status === "GENERATED_NOT_SAVED") {
-          toast.error(`Generated, but couldn't save it to the project: ${outcome.error}`)
-        }
-      } else {
-        setState({ status: "error", message: outcome.error })
-        toast.error(outcome.error)
-      }
-    })
+    generate(selectedProjectId)
   }
 
   const isGenerating = state.status === "generating"
@@ -64,9 +51,24 @@ export function SchemaGenerator({ projects }: { projects: Project[] }) {
         <label htmlFor="generator-project" className="text-sm font-medium">
           Project
         </label>
-        <Select value={projectId} onValueChange={setProjectId}>
+        <Select value={selectedProjectId} onValueChange={selectProject}>
           <SelectTrigger id="generator-project">
-            <SelectValue placeholder="Select a project" />
+            {/*
+              TD-002 fix: SelectValue resolves a selected item's label by
+              matching against items registered by mounted SelectItems,
+              which haven't mounted yet for a value set programmatically
+              before the popup is ever opened (the default-selected first
+              project) — it falls back to stringifying the raw value,
+              showing the project's UUID instead of its title. An explicit
+              children resolver looks the title up directly from `projects`
+              instead of depending on that registration timing. This is
+              Base UI's own documented pattern for this exact case.
+            */}
+            <SelectValue placeholder="Select a project">
+              {(value: string | null) =>
+                projects.find((project) => project.id === value)?.title ?? "Select a project"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {projects.map((project) => (

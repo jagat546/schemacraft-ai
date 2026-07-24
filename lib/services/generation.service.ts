@@ -12,7 +12,8 @@ import type { GeneratedSchema } from "@/types/schema"
 // pipeline: SUCCESS/GENERATED_NOT_SAVED still carry `data: GeneratedSchema`
 // (the same sql/drizzle/json/documentation?/mermaidDiagram? shape the UI
 // and the generations table have always used), so lib/actions/generate-schema.ts
-// and components/dashboard/schema-generator.tsx need no changes. What's
+// and features/ai-workspace/components/schema-generator.tsx need no
+// changes. What's
 // new is *how* that GeneratedSchema gets built — five distinct
 // statuses (AI_ERROR, INVALID_AST, SEMANTIC_VALIDATION_FAILED,
 // COMPILER_FAILED, GENERATED_NOT_SAVED) now separate the five ways the

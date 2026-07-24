@@ -31,9 +31,14 @@ system this refactor sits on top of and does not change.
    the same file(s) as an already-known, already-triaged bug in
    `TECH_DEBT.md`, fix it as part of that day rather than opening a
    second migration of the same component later. Confirmed overlaps:
-   Day 6 (Projects) touches TD-002 (project selector shows a raw UUID)
-   and TD-016 (dashboard project cards are non-interactive). No other day
-   currently overlaps a tracked debt item.
+   Day 6 (Projects) touches TD-016 (dashboard project cards are
+   non-interactive). No other day currently overlaps a tracked debt item.
+   **Correction (Day 3):** this list originally also assigned TD-002
+   (project selector shows a raw UUID, not the project title) to Day 6.
+   That was wrong — `TECH_DEBT.md` names TD-002's location as
+   `components/dashboard/schema-generator.tsx`, which is Day 3 (AI
+   Workspace) territory, not Day 6. Reassigned and fixed on Day 3; see
+   the Day 3 log entry below.
 3. **Checkpoint after every day.** Each day must build, lint, and pass
    the existing 149-test suite, and existing functionality must be
    verified intact, before it's committed — and before the next day
@@ -125,8 +130,28 @@ store either.
   zero-JS mutation pattern — rather than being wrapped in an artificial
   client hook. No `TECH_DEBT.md` item touches `app-sidebar.tsx`,
   `top-nav.tsx`, or `theme-toggle.tsx`; none were integrated this day.
-- **Day 3 — AI Workspace.** Not started.
-- **Day 3 — AI Workspace.** Not started.
+- **Day 3 — AI Workspace.** ✅ Moved `PromptEditor` and `SchemaGenerator`
+  into `features/ai-workspace/components/`. Extracted the
+  `generateSchema` Server Action call and its transition/toast side
+  effects into `features/ai-workspace/hooks/use-generate-schema.ts` — the
+  component no longer calls a Server Action or holds generation state
+  directly; it reads/writes `generation-store` and `project-store`
+  through the hook and the stores' own hooks. `SchemaGenerator` now
+  hydrates `project-store` from its server-fetched `projects` prop via a
+  `useEffect` (documented in the store's own file as the intended
+  pattern). **Integrated: TD-002** (see correction above) — the project
+  selector's `SelectValue` showed the raw project UUID instead of its
+  title on initial load. Root cause, verified against
+  `@base-ui/react`'s own source and its documented `Select.Value`
+  children-render-prop example: the trigger's label resolves by matching
+  the current value against items *registered by mounted `SelectItem`s*;
+  the initial value is set programmatically (the first project,
+  auto-selected before the popup is ever opened), so no item is
+  registered yet and it falls back to stringifying the raw value. Fixed
+  with an explicit `children` resolver on `SelectValue` that looks the
+  title up directly from the `projects` array — Base UI's own documented
+  pattern for this exact case, not a workaround. Prompt Templates and
+  Prompt Enhancement remain deferred (§ Scope decisions).
 - **Day 4 — Compiler Experience.** Not started.
 - **Day 5 — Developer Workbench.** Not started.
 - **Day 6 — Projects.** Not started.

@@ -20,13 +20,17 @@ This wasn't implemented in Phase 5 because it requires adding new database-level
 
 ---
 
-## TD-002 — Project selector shows raw UUID, not project title
+## TD-002 — Project selector shows raw UUID, not project title — RESOLVED
 
-**Where:** `components/dashboard/schema-generator.tsx` (Project `<Select>`)
+**Where:** `features/ai-workspace/components/schema-generator.tsx` (moved from `components/dashboard/schema-generator.tsx`, Project `<Select>`)
 
 **Priority:** Critical
 
-Observed directly in production and local testing — the user sees `513f5d94-9ecf-...` instead of "Testing" etc. Confusing, looks broken. Trivial fix, blocks nothing else. Tracked as v0.7.1 Milestone 2a.
+Observed directly in production and local testing — the user sees `513f5d94-9ecf-...` instead of "Testing" etc. Confusing, looks broken.
+
+**Root cause:** `@base-ui/react`'s `Select.Value` resolves its label by matching the current value against items registered by mounted `SelectItem`s. The initial value was set programmatically (first project, auto-selected before the popup was ever opened), so no item was registered yet and it fell back to stringifying the raw value.
+
+**Fix (frontend modularization, Day 3):** an explicit `children` render function on `SelectValue` that looks the title up directly from the `projects` array — Base UI's own documented pattern for this case, not a workaround. See `docs/architecture/frontend-modularization.md` Day 3 entry.
 
 ## TD-003 — No FK-column indexing in generated SQL/Drizzle
 
