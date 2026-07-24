@@ -35,11 +35,26 @@ app/
   page.tsx, layout.tsx, globals.css — root shell
 
 components/
-  auth/                            — login/signup forms
-  dashboard/                       — schema generator, output tabs, viewers, projects panel
-  layout/                          — sidebar, theme toggle, top nav
+  auth/                            — login/signup forms (not a feature module — public-route auth UI)
+  dashboard/dashboard-shell.tsx    — page-level composition of ProjectsPanel + SchemaGenerator
   providers/                       — theme + toast providers
   ui/                              — shadcn/ui primitives
+
+features/                          — feature modules; see
+                                      docs/architecture/frontend-modularization.md for the full
+                                      module-ownership contract and day-by-day history
+  shell/components/                — AppSidebar, TopNav, ThemeToggle
+  ai-workspace/
+    components/                   — PromptEditor, SchemaGenerator
+    hooks/use-generate-schema.ts  — generateSchema Server Action orchestration
+  compiler/components/            — GenerationStatus (idle / generating / error)
+  workbench/
+    components/                   — OutputTabs, CodeViewer, MarkdownViewer, MermaidViewer,
+                                      OutputActions, OutputSkeleton
+    lib/output-config.ts          — per-artifact label/filename/mimeType/language config
+  projects/
+    components/                   — ProjectsPanel, ProjectCard, CreateProjectDialog
+    hooks/use-create-project.ts   — createProjectAction Server Action orchestration
 
 lib/
   actions/                         — Server Action boundary ("use server")
@@ -50,22 +65,29 @@ lib/
   ast/                             — AST schema, types, validator, semantic analyzer
   compiler/                        — 5 compilers + shared helpers + registry
   repositories/                    — RLS-backed Supabase data access
+  stores/                          — ui-store, generation-store, project-store (Zustand;
+                                      client-side state, never call Server Actions directly)
   supabase/                        — browser / server / middleware clients
   auth/                            — auth helpers
   db/                              — Drizzle schema definitions (local tooling only)
+  download.ts, utils.ts            — shared generic client helpers (not feature-owned)
+
+hooks/
+  use-copy-to-clipboard.ts, use-mobile.ts — shared generic hooks (not feature-owned)
 
 types/
   schema.ts                        — GeneratedSchema, the persistence/API contract
-  ui.ts                            — UI-only types
+  ui.ts                            — UI-only types (shared across features and lib/stores)
 
 supabase/
   rls.sql, triggers.sql            — Row Level Security policies, signup trigger
 
 proxy.ts                           — Next.js 16 root proxy (auth route protection)
 drizzle.config.ts                  — Drizzle Kit config (local migrations only)
-test/, lib/**/*.test.ts            — Vitest test suites (149 tests)
+test/, **/*.test.ts                — Vitest test suites
 .github/workflows/ci.yml           — GitHub Actions CI
 docs/architecture/sprint5-ast.md   — detailed AST/compiler pipeline design doc
+docs/architecture/frontend-modularization.md — feature-module boundaries and day-by-day history
 ```
 
 ## The AI Pipeline
@@ -203,12 +225,16 @@ the Next.js 16 root proxy file (`proxy.ts`).
 
 ## Testing Architecture
 
-149 automated tests across 9 files, run with **Vitest**:
+165 automated tests across 12 files, run with **Vitest** (counts verified
+directly against a real test run, not carried forward from an earlier,
+since-inaccurate count — see below):
 
+- `test/smoke.test.ts` (2) — proves the Vitest harness itself resolves the `@/*` alias and the `react-server` condition
 - `lib/ast/validator.test.ts` (21) — shape validation, malformed input, version checks
 - `lib/ast/analyzer.test.ts` (24) — one test per error/warning code, plus regression cases
-- `lib/compiler/{sql,drizzle,json,markdown,mermaid}/*.test.ts` (138) — happy path, determinism, and a regression test per compiler
+- `lib/compiler/{sql,drizzle,json,markdown,mermaid}/*.test.ts` (91) — happy path, determinism, and a regression test per compiler
 - `lib/services/generation.service.test.ts` (11) — integration tests for `buildGeneratedArtifacts`, the seam between compiler output and the persistence contract
+- `lib/stores/{ui,generation,project}-store.test.ts` (16) — pure state-transition tests for the three client stores backing the feature modules (`ui-store` 3, `generation-store` 6, `project-store` 7)
 
 Compiler tests use hand-written expected-output assertions, not snapshots
 — since every compiler's entire design promise is deterministic,
@@ -227,11 +253,13 @@ matrix, and no coverage upload — deliberately minimal.
 See [`docs/planning/v0.7.1-roadmap.md`](./docs/planning/v0.7.1-roadmap.md)
 for the full milestone-by-milestone technical roadmap beyond Milestone 1.
 
-## Frontend Modularization (in progress)
+## Frontend Modularization
 
-`components/dashboard` and `components/layout` are being incrementally
-reorganized into feature modules (`features/*`) backed by three Zustand
-stores (`lib/stores/*`) — a structural refactor only, no design or backend
-changes. See
+`components/dashboard` and `components/layout` have been reorganized into
+five feature modules (`features/shell`, `features/ai-workspace`,
+`features/compiler`, `features/workbench`, `features/projects`) backed by
+three Zustand stores (`lib/stores/*`) — a structural refactor, with one
+in-scope bug fix per module where a tracked `TECH_DEBT.md` item overlapped
+the files being moved (TD-002, TD-016). No design or backend changes. See
 [`docs/architecture/frontend-modularization.md`](./docs/architecture/frontend-modularization.md)
-for the module boundaries, store responsibilities, and day-by-day status.
+for the full module-ownership contract and day-by-day history.

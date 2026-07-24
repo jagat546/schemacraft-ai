@@ -1,3 +1,5 @@
+"use client"
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CodeViewer } from "@/features/workbench/components/code-viewer"
 import { MarkdownViewer } from "@/features/workbench/components/markdown-viewer"

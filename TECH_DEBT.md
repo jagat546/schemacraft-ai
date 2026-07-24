@@ -114,7 +114,7 @@ Not actively insecure, but a missed hardening layer given the app renders AI-gen
 
 ## TD-013 — No client-side character-count/limit indicator on the prompt textarea
 
-**Where:** `components/dashboard/prompt-editor.tsx`
+**Where:** `features/ai-workspace/components/prompt-editor.tsx` (moved from `components/dashboard/prompt-editor.tsx` during the frontend modularization, Day 3)
 
 **Priority:** Low
 

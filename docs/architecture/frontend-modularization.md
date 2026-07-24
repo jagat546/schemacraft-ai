@@ -1,6 +1,6 @@
 # Frontend Modularization — Feature Modules & State Stores
 
-Status: **In progress. Day 1 of 7 complete.**
+Status: **Complete. All 7 days done.**
 
 This document records the scope and ground rules for an incremental
 frontend refactor: reorganizing `components/dashboard` and
@@ -247,4 +247,53 @@ store either.
 
   Search and Favorites remain deferred (§ Scope decisions). No new route
   or project detail page was added.
-- **Day 7 — Polish.** Not started.
+- **Day 7 — Polish.** ✅ Final cleanup and stabilization pass, no new
+  functionality.
+  - Removed the empty `components/layout/` directory left over from Day
+    2 (git doesn't track empty directories, but the filesystem still had
+    it).
+  - Removed `selectSelectedProject` from `project-store.ts` and its two
+    dedicated tests — genuinely dead code: nothing in application code
+    called it (only its own test did). Created in Day 1 anticipating a
+    need that never materialized, since Days 3 and 6 both resolved a
+    project's title inline instead.
+  - Fixed a real, if latent, bug: `features/workbench/components/
+    output-tabs.tsx` called `useUiStore` (a hook) but was missing its
+    `"use client"` directive, added when the store wiring landed in Day
+    5. It worked only because it's always rendered inside an
+    already-client tree (`SchemaGenerator`) — a future import from a
+    Server Component context would have failed. Added the directive.
+  - Audited every feature file's client/server boundary; everything else
+    was already correctly minimal — `PromptEditor`, `AppSidebar`,
+    `TopNav`, and `OutputSkeleton` have no hooks and correctly carry no
+    `"use client"`.
+  - Confirmed the cross-feature dependency graph is acyclic:
+    `ai-workspace → compiler, workbench`; `compiler → workbench`;
+    `workbench` and `projects` have no outbound feature dependencies.
+    Matches the documented module table exactly.
+  - **TECH_DEBT.md sync:** TD-013's `Where:` path was stale
+    (`components/dashboard/prompt-editor.tsx`, moved in Day 3) —
+    corrected. TD-002 and TD-016 were already marked resolved in their
+    own Day 3/6 entries; no other item needed updating.
+  - **ARCHITECTURE.md sync:** rewrote the Folder Structure section to
+    show `features/*` and `lib/stores/*` instead of the pre-refactor
+    tree; updated the Frontend Modularization section from "in progress"
+    to complete. Also corrected a pre-existing inaccuracy in the Testing
+    Architecture section unrelated to this refactor: the compiler test
+    count was listed as 138 (should be 91) and `test/smoke.test.ts`'s 2
+    tests were omitted from the breakdown entirely, even though the
+    stated 149-test total already silently included them — verified the
+    real per-file counts directly against a test run rather than
+    trusting the prior arithmetic.
+  - **Scope note on the regression checklist's "browser refresh → previously
+    selected project retained":** `project-store` and `ui-store` are
+    plain in-memory Zustand stores with no persistence middleware, so a
+    hard browser refresh always resets them — exactly matching
+    pre-refactor behavior (the original `useState(projects[0]?.id ?? null)`
+    initializer never persisted a selection across a reload either).
+    Verified live: after a refresh, the app deterministically falls back
+    to the most-recently-created project via the same synchronous
+    fallback used throughout this refactor, with no flash and no error.
+    Adding real cross-refresh persistence (e.g. `localStorage`) would be
+    new functionality this milestone's brief explicitly excludes, not a
+    bug fix — not implemented.

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
 import type { Project } from "@/lib/repositories/project.repository"
-import { selectSelectedProject, useProjectStore } from "@/lib/stores/project-store"
+import { useProjectStore } from "@/lib/stores/project-store"
 
 const initialState = useProjectStore.getState()
 
@@ -87,18 +87,5 @@ describe("useProjectStore", () => {
     useProjectStore.getState().addProject(project)
 
     expect(useProjectStore.getState().selectedProjectId).toBe("a")
-  })
-
-  it("selectSelectedProject resolves the full project for the current selection", () => {
-    const projectA = makeProject({ id: "a", title: "Blog" })
-    const projectB = makeProject({ id: "b", title: "Inventory" })
-    useProjectStore.getState().setProjects([projectA, projectB])
-    useProjectStore.getState().selectProject("b")
-
-    expect(selectSelectedProject(useProjectStore.getState())).toEqual(projectB)
-  })
-
-  it("selectSelectedProject returns null when nothing is selected", () => {
-    expect(selectSelectedProject(useProjectStore.getState())).toBeNull()
   })
 })

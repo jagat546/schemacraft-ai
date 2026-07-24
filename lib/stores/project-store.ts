@@ -39,7 +39,3 @@ export const useProjectStore = create<ProjectStore>()((set) => ({
     })),
   selectProject: (projectId) => set({ selectedProjectId: projectId }),
 }))
-
-export function selectSelectedProject(store: ProjectStore): Project | null {
-  return store.projects.find((project) => project.id === store.selectedProjectId) ?? null
-}
