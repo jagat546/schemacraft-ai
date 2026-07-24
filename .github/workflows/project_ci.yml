@@ -61,10 +61,6 @@ jobs:
         run: |
           echo "Build completed successfully."
           ls -la
-          if [ -d "dist" ]; then
-            echo "dist directory found"
-            ls -la dist
-          fi
 
       - name: Create Deployment Package
         run: |
@@ -85,5 +81,4 @@ jobs:
           echo "========================================"
           echo "CI Pipeline Completed Successfully"
           echo "Artifact : schemacraft-build-${{ github.run_number }}"
-          echo "Branch   : ${{ github.event.inputs.branch }}"
           echo "========================================"
