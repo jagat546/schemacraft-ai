@@ -2,7 +2,6 @@
 
 import { useEffect } from "react"
 
-import { OutputSkeleton } from "@/components/dashboard/output-skeleton"
 import { OutputTabs } from "@/components/dashboard/output-tabs"
 import {
   Select,
@@ -11,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { GenerationStatus } from "@/features/compiler/components/generation-status"
 import { PromptEditor } from "@/features/ai-workspace/components/prompt-editor"
 import { useGenerateSchema } from "@/features/ai-workspace/hooks/use-generate-schema"
 import type { Project } from "@/lib/repositories/project.repository"
@@ -85,22 +85,7 @@ export function SchemaGenerator({ projects }: { projects: Project[] }) {
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
       />
-      {isGenerating && (
-        <div aria-busy="true">
-          <span className="sr-only" role="status" aria-live="polite">
-            Generating schema…
-          </span>
-          <OutputSkeleton />
-        </div>
-      )}
-      {state.status === "idle" && (
-        <p className="text-sm text-muted-foreground">
-          Describe a schema above and click Generate to see the SQL, Drizzle model, and sample JSON.
-        </p>
-      )}
-      {state.status === "error" && (
-        <p className="text-sm text-destructive">{state.message}</p>
-      )}
+      <GenerationStatus />
       {state.status === "success" && <OutputTabs result={state.data} />}
     </div>
   )

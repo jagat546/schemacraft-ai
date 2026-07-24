@@ -50,7 +50,7 @@ system this refactor sits on top of and does not change.
 |---|---|---|
 | `features/shell` | `AppSidebar`, `TopNav` | Command Palette, Status Bar |
 | `features/ai-workspace` | `PromptEditor`, the generation-triggering part of `SchemaGenerator` | Prompt Templates, Prompt Enhancement |
-| `features/compiler` | The generation error/status display (currently inline text in `SchemaGenerator`) | Pipeline Stepper, Live Logs — there is no backend event stream to visualize; the pipeline (§7 of `ARCHITECTURE.md`) currently returns one final result, not intermediate stage events |
+| `features/compiler` | The generation status display (`GenerationStatus`: idle / generating / error) | Pipeline Stepper, Live Logs, per-stage progress, any "compiler status" indicator finer-grained than idle/generating/error — there is no backend event stream to visualize; the pipeline (§7 of `ARCHITECTURE.md`) currently returns one final result, not intermediate stage events. Confirmed again on Day 4: no `v0.8.0` architecture document exists in this repo to define one, and building a real stage-by-stage indicator would require backend instrumentation, which is out of scope. A simulated/fake stepper was considered and rejected — it would show stages that aren't actually happening. |
 | `features/workbench` | `OutputTabs`, `CodeViewer`, `MarkdownViewer`, `MermaidViewer` | — |
 | `features/projects` | `ProjectsPanel` | Search, Favorites |
 
@@ -152,7 +152,20 @@ store either.
   title up directly from the `projects` array — Base UI's own documented
   pattern for this exact case, not a workaround. Prompt Templates and
   Prompt Enhancement remain deferred (§ Scope decisions).
-- **Day 4 — Compiler Experience.** Not started.
+- **Day 4 — Compiler Experience.** ✅ Extracted the generating/idle/error
+  status display out of `SchemaGenerator` into
+  `features/compiler/components/generation-status.tsx`, reading
+  `generation-store` directly (it's the single source of truth; the
+  component holds no local state of its own — there's nothing feature-
+  local to hold). No `hooks/`/`types/`/`actions/` subfolder: there's no
+  orchestration here, only derived rendering. Scope was clarified before
+  implementation: "Pipeline visualization" / "Progress display" /
+  "compiler status" from the Day 4 brief were interpreted as the reorg of
+  the three states that already exist (idle/generating/error), not a new
+  multi-stage pipeline stepper — confirmed with the requester, since no
+  backend stage-event source exists to drive a real one and a simulated
+  one would misrepresent actual progress. No `TECH_DEBT.md` item touches
+  this display logic; none integrated this day.
 - **Day 5 — Developer Workbench.** Not started.
 - **Day 6 — Projects.** Not started.
 - **Day 7 — Polish.** Not started.
