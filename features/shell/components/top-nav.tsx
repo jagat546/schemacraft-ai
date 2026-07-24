@@ -1,5 +1,6 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { PageTitle } from "@/features/shell/components/page-title"
 import { ThemeToggle } from "@/features/shell/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { signOut } from "@/lib/actions/auth"
@@ -13,7 +14,7 @@ export async function TopNav() {
       <div className="flex items-center gap-2">
         <SidebarTrigger />
         <Separator orientation="vertical" className="h-5" />
-        <span className="text-sm font-medium">Generator</span>
+        <PageTitle />
       </div>
       <div className="flex items-center gap-3">
         {user && (

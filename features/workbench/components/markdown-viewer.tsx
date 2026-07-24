@@ -3,8 +3,7 @@
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { OutputActions } from "@/features/workbench/components/output-actions"
+import { OutputViewerFrame } from "@/features/workbench/components/output-viewer-frame"
 import { OUTPUT_CONFIG } from "@/features/workbench/lib/output-config"
 
 // react-markdown always passes a `node` prop to component overrides (hast node
@@ -18,14 +17,9 @@ export function MarkdownViewer({ content }: { content: string }) {
   const config = OUTPUT_CONFIG.documentation
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">{config.label}</span>
-        <OutputActions content={content} variant="documentation" />
-      </div>
-      <ScrollArea className="h-[400px] rounded-md border bg-muted/30">
-        <div className="p-4 text-sm leading-relaxed">
-          <Markdown
+    <OutputViewerFrame label={config.label} content={content} variant="documentation">
+      <div className="p-4 text-sm leading-relaxed">
+        <Markdown
             remarkPlugins={[remarkGfm]}
             components={{
               h1: (props) => <h1 className="mt-4 mb-2 text-xl font-semibold first:mt-0" {...withoutNode(props)} />,
@@ -78,8 +72,7 @@ export function MarkdownViewer({ content }: { content: string }) {
           >
             {content}
           </Markdown>
-        </div>
-      </ScrollArea>
-    </div>
+      </div>
+    </OutputViewerFrame>
   )
 }
