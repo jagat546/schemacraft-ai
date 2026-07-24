@@ -4,41 +4,43 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Git Branch"
+        description: "Branch to build"
         required: true
         default: "develop/chirag"
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   build:
-
     name: Build Application
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+          fetch-depth: 0
 
       - name: Display Build Information
         run: |
           echo "========================================"
           echo "Project Name : SchemaCraft AI"
-          echo "Build Number : ${{ github.run_number }}"
+          echo "Workflow     : Project_CI"
+          echo "Run Number   : ${{ github.run_number }}"
+          echo "Run ID       : ${{ github.run_id }}"
+          echo "Triggered By : ${{ github.actor }}"
           echo "Branch       : ${{ github.event.inputs.branch }}"
-          echo "Commit       : ${{ github.sha }}"
+          echo "Commit SHA   : $(git rev-parse --short HEAD)"
           echo "========================================"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
 
       - name: Install Dependencies
         run: npm ci
@@ -55,12 +57,21 @@ jobs:
       - name: Build Application
         run: npm run build
 
+      - name: Show Build Output
+        run: |
+          echo "Build completed successfully."
+          ls -la
+          if [ -d "dist" ]; then
+            echo "dist directory found"
+            ls -la dist
+          fi
+
       - name: Create Deployment Package
         run: |
           zip -r schemacraft-build-${{ github.run_number }}.zip . \
-          -x ".git/*" \
-          -x ".github/*" \
-          -x "node_modules/*"
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "node_modules/*"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
@@ -68,3 +79,11 @@ jobs:
           name: schemacraft-build-${{ github.run_number }}
           path: schemacraft-build-${{ github.run_number }}.zip
           retention-days: 30
+
+      - name: Build Summary
+        run: |
+          echo "========================================"
+          echo "CI Pipeline Completed Successfully"
+          echo "Artifact : schemacraft-build-${{ github.run_number }}"
+          echo "Branch   : ${{ github.event.inputs.branch }}"
+          echo "========================================"
