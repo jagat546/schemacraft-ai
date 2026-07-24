@@ -4,15 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       build_number:
-        description: "Enter CI Build Number (Example: 6)"
+        description: "Enter CI Build Number"
         required: true
         type: string
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Download Selected Build Artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -24,15 +31,16 @@ jobs:
           echo "=================================="
 
           RUN_ID=$(gh run list \
+            --repo "${{ github.repository }}" \
             --workflow "Project CI" \
             --branch develop/chirag \
-            --json databaseId,displayTitle \
             --limit 100 \
-            --jq '.[] | select(.displayTitle=="Build #${{ github.event.inputs.build_number }}") | .databaseId' \
+            --json databaseId,artifacts \
+            --jq '.[] | select(.artifacts[].name=="schemacraft-build-${{ github.event.inputs.build_number }}") | .databaseId' \
             | head -1)
 
           if [ -z "$RUN_ID" ]; then
-            echo "CI Run not found for Build #${{ github.event.inputs.build_number }}"
+            echo "Artifact schemacraft-build-${{ github.event.inputs.build_number }} not found."
             exit 1
           fi
 
@@ -40,7 +48,7 @@ jobs:
 
           ARTIFACT_ID=$(gh api \
             repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts \
-            --jq '.artifacts[0].id')
+            --jq '.artifacts[] | select(.name=="schemacraft-build-${{ github.event.inputs.build_number }}") | .id')
 
           echo "Artifact ID : $ARTIFACT_ID"
 
