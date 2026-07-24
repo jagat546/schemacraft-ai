@@ -2,7 +2,6 @@
 
 import { useEffect } from "react"
 
-import { OutputTabs } from "@/components/dashboard/output-tabs"
 import {
   Select,
   SelectContent,
@@ -13,6 +12,7 @@ import {
 import { GenerationStatus } from "@/features/compiler/components/generation-status"
 import { PromptEditor } from "@/features/ai-workspace/components/prompt-editor"
 import { useGenerateSchema } from "@/features/ai-workspace/hooks/use-generate-schema"
+import { OutputTabs } from "@/features/workbench/components/output-tabs"
 import type { Project } from "@/lib/repositories/project.repository"
 import { useProjectStore } from "@/lib/stores/project-store"
 

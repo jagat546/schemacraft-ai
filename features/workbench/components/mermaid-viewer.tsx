@@ -3,9 +3,9 @@
 import { useEffect, useId, useState } from "react"
 import { useTheme } from "next-themes"
 
-import { OutputActions } from "@/components/dashboard/output-actions"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { OUTPUT_CONFIG } from "@/lib/output-config"
+import { OutputActions } from "@/features/workbench/components/output-actions"
+import { OUTPUT_CONFIG } from "@/features/workbench/lib/output-config"
 
 type RenderState =
   | { status: "loading" }

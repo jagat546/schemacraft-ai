@@ -11,8 +11,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
+import { OUTPUT_CONFIG } from "@/features/workbench/lib/output-config"
 import { downloadTextFile } from "@/lib/download"
-import { OUTPUT_CONFIG } from "@/lib/output-config"
 import type { OutputVariant } from "@/types/ui"
 
 export function OutputActions({

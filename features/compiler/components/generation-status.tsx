@@ -6,7 +6,7 @@
 // show, because the pipeline (lib/services/generation.service.ts) returns
 // one final result, not intermediate stage events. See
 // docs/architecture/frontend-modularization.md, Day 4 entry.
-import { OutputSkeleton } from "@/components/dashboard/output-skeleton"
+import { OutputSkeleton } from "@/features/workbench/components/output-skeleton"
 import { useGenerationStore } from "@/lib/stores/generation-store"
 
 export function GenerationStatus() {

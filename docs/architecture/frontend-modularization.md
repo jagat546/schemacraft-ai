@@ -51,7 +51,7 @@ system this refactor sits on top of and does not change.
 | `features/shell` | `AppSidebar`, `TopNav` | Command Palette, Status Bar |
 | `features/ai-workspace` | `PromptEditor`, the generation-triggering part of `SchemaGenerator` | Prompt Templates, Prompt Enhancement |
 | `features/compiler` | The generation status display (`GenerationStatus`: idle / generating / error) | Pipeline Stepper, Live Logs, per-stage progress, any "compiler status" indicator finer-grained than idle/generating/error — there is no backend event stream to visualize; the pipeline (§7 of `ARCHITECTURE.md`) currently returns one final result, not intermediate stage events. Confirmed again on Day 4: no `v0.8.0` architecture document exists in this repo to define one, and building a real stage-by-stage indicator would require backend instrumentation, which is out of scope. A simulated/fake stepper was considered and rejected — it would show stages that aren't actually happening. |
-| `features/workbench` | `OutputTabs`, `CodeViewer`, `MarkdownViewer`, `MermaidViewer` | — |
+| `features/workbench` | `OutputTabs`, `CodeViewer`, `MarkdownViewer`, `MermaidViewer`, `OutputActions`, `OutputSkeleton`, `output-config.ts` | — |
 | `features/projects` | `ProjectsPanel` | Search, Favorites |
 
 `components/ui/*` (shadcn primitives) and `components/providers/*`
@@ -70,6 +70,12 @@ features/<module>/
                 never business logic itself, never a direct fetch/DB call
   tests/        colocated *.test.ts(x), matching the project's existing
                 convention (see lib/ast/*.test.ts, lib/compiler/**/*.test.ts)
+  lib/          feature-local, non-component pure helpers/config with no
+                consumer outside this module (added Day 5, see
+                features/workbench/lib/output-config.ts) — not part of the
+                original five-subfolder contract, extended because
+                OUTPUT_CONFIG doesn't fit components/hooks/types/actions
+                and has zero consumers outside Workbench
 ```
 
 `lib/actions/*.ts` (the `"use server"` boundary) is not moved into feature
@@ -181,6 +187,34 @@ store either.
   exactly rather than waiting on the effect. Re-verified with three
   consecutive fresh reloads showing the correct project immediately, and
   the full lint/typecheck/test/build gate re-run clean afterward.
-- **Day 5 — Developer Workbench.** Not started.
+- **Day 5 — Developer Workbench.** ✅ Moved `OutputTabs`, `CodeViewer`,
+  `MarkdownViewer`, `MermaidViewer`, `OutputActions`, and `OutputSkeleton`
+  into `features/workbench/components/`, and `output-config.ts` into
+  `features/workbench/lib/` (new subfolder — see above). Two candidates
+  were deliberately **not** moved despite being Workbench's only current
+  consumers: `lib/download.ts` (`downloadTextFile`) and
+  `hooks/use-copy-to-clipboard.ts` are both generic, output-agnostic
+  utilities with no dependency on `OUTPUT_CONFIG` or any output type —
+  kept in the shared `lib`/`hooks` layers so a future feature can reuse
+  them without an awkward cross-feature import back into Workbench.
+  `types/ui.ts` (`OutputVariant`/`OutputLanguage`) also stayed shared:
+  it's consumed by `ui-store` (Day 1), outside Workbench.
+
+  `OutputTabs`' tab switching, previously uncontrolled Radix/Base UI
+  state (`defaultValue="sql"`), is now wired to `ui-store`'s
+  `activeOutputTab` — the field Day 1 created anticipating exactly this
+  and that had gone unused through Days 2–4. This is consuming existing
+  state, not introducing new state, per this milestone's instruction to
+  continue using the existing stores.
+
+  Cross-module import note: `features/compiler/components/
+  generation-status.tsx` (Day 4) imports `OutputSkeleton` from
+  `features/workbench` — a one-directional Compiler → Workbench
+  dependency, the same pattern `features/ai-workspace` already has on
+  both `features/compiler` and `features/workbench`. No cycle exists.
+
+  No `TECH_DEBT.md` item touches any file moved or edited this day;
+  none integrated.
+- **Day 6 — Projects.** Not started.
 - **Day 6 — Projects.** Not started.
 - **Day 7 — Polish.** Not started.

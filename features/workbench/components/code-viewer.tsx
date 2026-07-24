@@ -3,9 +3,9 @@
 import { useTheme } from "next-themes"
 import { Highlight, themes } from "prism-react-renderer"
 
-import { OutputActions } from "@/components/dashboard/output-actions"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { OUTPUT_CONFIG } from "@/lib/output-config"
+import { OutputActions } from "@/features/workbench/components/output-actions"
+import { OUTPUT_CONFIG } from "@/features/workbench/lib/output-config"
 import type { OutputVariant } from "@/types/ui"
 
 export function CodeViewer({

@@ -3,9 +3,9 @@
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-import { OutputActions } from "@/components/dashboard/output-actions"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { OUTPUT_CONFIG } from "@/lib/output-config"
+import { OutputActions } from "@/features/workbench/components/output-actions"
+import { OUTPUT_CONFIG } from "@/features/workbench/lib/output-config"
 
 // react-markdown always passes a `node` prop to component overrides (hast node
 // metadata); it must be stripped before spreading the rest onto a DOM element.
