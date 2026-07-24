@@ -63,9 +63,8 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip \
             -o schemacraft-build.zip
 
-          echo "Artifact Downloaded Successfully"
-          ls -lh
-          unzip -l schemacraft-build.zip
+          echo "Downloaded Artifact"
+          ls -lh schemacraft-build.zip
 
       - name: Copy Artifact to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -85,17 +84,19 @@ jobs:
           script: |
             set -e
 
-            sudo mkdir -p /opt/schemacraft-ai
-            sudo chown -R $USER:$USER /opt/schemacraft-ai
+            APP_DIR=/opt/schemacraft-ai
 
-            cd /opt/schemacraft-ai
+            sudo mkdir -p $APP_DIR
+            sudo chown -R $USER:$USER $APP_DIR
+
+            cd $APP_DIR
 
             rm -rf *
 
             # Extract GitHub artifact
             unzip -oq /tmp/schemacraft-build.zip
 
-            # Extract actual deployment package
+            # Extract deployment package
             unzip -oq schemacraft-build-*.zip
 
             rm -f schemacraft-build-*.zip
@@ -111,9 +112,21 @@ jobs:
 
             pm2 delete schemacraft-ai || true
 
-            pm2 start npm --name schemacraft-ai -- start
+            if [ -f ".next/standalone/server.js" ]; then
+              echo "Starting Standalone Build..."
+              pm2 start .next/standalone/server.js \
+                --name schemacraft-ai \
+                --interpreter node
+            else
+              echo "Starting Regular Next.js Build..."
+              pm2 start npm \
+                --name schemacraft-ai \
+                -- start
+            fi
 
             pm2 save
+
+            pm2 status
 
             echo "=================================="
             echo "Deployment Completed Successfully"
