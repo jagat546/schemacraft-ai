@@ -23,7 +23,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-
           echo "=================================="
           echo "Project CD Started"
           echo "Build : ${{ github.event.inputs.build_number }}"
@@ -64,6 +63,7 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip \
             -o schemacraft-build.zip
 
+          echo "Artifact Downloaded Successfully"
           ls -lh
           unzip -l schemacraft-build.zip
 
@@ -92,7 +92,18 @@ jobs:
 
             rm -rf *
 
+            # Extract GitHub artifact
             unzip -oq /tmp/schemacraft-build.zip
+
+            # Extract actual deployment package
+            unzip -oq schemacraft-build-*.zip
+
+            rm -f schemacraft-build-*.zip
+
+            echo "=================================="
+            echo "Deployment Package Contents"
+            echo "=================================="
+            ls -lah
 
             export NODE_OPTIONS="--max-old-space-size=2048"
 
