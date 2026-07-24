@@ -226,3 +226,12 @@ matrix, and no coverage upload — deliberately minimal.
 
 See [`docs/planning/v0.7.1-roadmap.md`](./docs/planning/v0.7.1-roadmap.md)
 for the full milestone-by-milestone technical roadmap beyond Milestone 1.
+
+## Frontend Modularization (in progress)
+
+`components/dashboard` and `components/layout` are being incrementally
+reorganized into feature modules (`features/*`) backed by three Zustand
+stores (`lib/stores/*`) — a structural refactor only, no design or backend
+changes. See
+[`docs/architecture/frontend-modularization.md`](./docs/architecture/frontend-modularization.md)
+for the module boundaries, store responsibilities, and day-by-day status.
