@@ -197,16 +197,14 @@ Only flows traceable end-to-end through implemented code.
 
 ## 8. Known UX Limitations
 
-Verified gaps only — no proposed solutions, per this task's scope.
+Verified gaps only — no proposed solutions, per this task's scope. Two limitations originally listed here (no character-count indicator, no history/list screen) were resolved during Sprint 1 and have been removed — see `TECH_DEBT.md` TD-013 and TD-006.
 
 - **Typography-scale tokens are defined but not consumed.** `--text-display-lg`, `--text-h1`, `--text-h2`, `--text-body`, `--text-body-sm`, `--text-code` exist in `app/globals.css` but no component read during this task uses them; headings use ad hoc Tailwind size classes (`text-2xl`, `text-4xl`, etc.) instead.
 - **Two of four brand accent tokens appear unused.** `--accent-emerald` and `--accent-amber` are defined in both light and dark mode but no semantic variable or component reference to them was found.
 - **Sidebar items all render the same icon.** `AppSidebar` maps over `NAV_ITEMS` (Dashboard, Generator) but renders a hardcoded `<Sparkles />` icon for every entry rather than a per-item icon — both nav destinations look identical in the sidebar.
-- **No project-detail or history-list screen.** The Workbench route shows one generation at a time (latest, or one specified by `?generation=<id>`); there is no UI to browse/list all of a project's past generations, even though `getProjectGenerationsAction` (which returns the full list) already exists and is called internally by the Workbench route itself.
 - **No custom 404 page.** Only Next.js's default `_not-found` handling was found; no product-styled not-found screen exists.
-- **No client-side character-count indicator on either prompt input.** The authenticated Generator's `PromptEditor` and the sandbox's `HeroSandbox` textarea both enforce character limits only via `maxLength`/server-side validation, with no visible running counter (this matches `TECH_DEBT.md` TD-013, tracked for the authenticated path specifically).
 - **Project Settings has no way to become interactive.** Both controls on `/dashboard/projects/[id]/settings` are permanently disabled by the compiler layer's current Postgres-only, snake_case-only implementation — the screen exists but has no functional path today.
-- **No dedicated onboarding/empty-state guidance beyond text.** The "no projects yet" and "no generation to show" states are single centered text blocks with one action button — no illustration, tour, or multi-step guidance.
+- **No dedicated onboarding/empty-state guidance beyond text.** The "no projects yet", "no generation to show", and "no generations yet" (Generation History, added Sprint 1) states are single centered text blocks with at most one action button — no illustration, tour, or multi-step guidance.
 
 ---
 
@@ -214,8 +212,6 @@ Verified gaps only — no proposed solutions, per this task's scope.
 
 Only items already present in the repository's own tracked backlog (`TECH_DEBT.md`, `docs/planning/v0.7.1-roadmap.md`) are listed. No new roadmap items have been introduced.
 
-- **History/navigation UI** — a full list view of a project's past generations (browse, view, delete), beyond the Workbench's current "latest or one specific ID" access pattern. Tracked as `TECH_DEBT.md` TD-006 / v0.7.1 Milestone 3.
-- **Client-side prompt character-count indicator** — `TECH_DEBT.md` TD-013.
 - **SQL dialect and naming-convention options becoming real** — currently blocked on the compiler layer (`lib/compiler/sql` is Postgres-only, snake_case-only); no compiler-side work is scheduled in the currently-tracked backlog beyond the UI shell already built.
 
-No other future UX items were found recorded anywhere in the repository's documentation. This is itself consistent with the Sprint 0 finding (see `Sprint-00-Recovery.md` §4, §6) that the "Engineering Spec" governing UX 2.0's original scope is not present in-repo — any further UX roadmap beyond the three items above would require Sprint 0's separate documentation-synchronization work, not this recovery task.
+The other two items previously listed here — history/navigation UI and the client-side prompt character-count indicator — shipped during Sprint 1 (S1-003, S1-004; see `TECH_DEBT.md` TD-006, TD-013) and have been removed from this list rather than left inaccurately open.

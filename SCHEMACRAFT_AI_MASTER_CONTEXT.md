@@ -1,7 +1,7 @@
 # SchemaCraft AI — Master Context
 
 **Status:** Authoritative project reference. Describes the repository as it exists today.
-**Last verified:** 2026-07-25, against commit `92a3592` on branch `refactor/frontend-modularization-review`.
+**Last verified:** 2026-07-26, against commit `1b42ac1` on branch `refactor/frontend-modularization-review` (post Sprint 1, S1-004).
 **Maintenance rule:** Update this document whenever architecture, features, or repository structure change. If this document and the repository disagree, the repository is correct — file a doc-sync task rather than trusting this file blindly.
 
 ---
@@ -10,8 +10,8 @@
 
 - **Project name:** SchemaCraft AI
 - **Product vision:** Turn a plain-English description of a data model into a complete, internally-consistent set of database artifacts — SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram — generated from one deterministic pipeline so every artifact stays consistent with every other.
-- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication, project/generation persistence, and a public marketing site with an unauthenticated demo sandbox. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 0, task S0-001).
-- **Current milestone:** Sprint 0 — Project Recovery (workspace/documentation baseline restoration). The most recent shipped product work is a nine-part "UX 2.0" initiative (design tokens through a public sandbox), version `0.7.1` per `package.json`.
+- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication, project/generation persistence, generation history/navigation, and a public marketing site with an unauthenticated demo sandbox. Every generated schema now includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 1, task S1-004).
+- **Current milestone:** Sprint 1 — Product Development, complete (S1-001 through S1-004: FK-column indexing, join-table uniqueness warning, Generation History UI, UX polish/dependency hygiene). Sprint 0 (Project Recovery) completed prior to Sprint 1. Version `0.7.1` per `package.json`.
 
 ---
 
@@ -46,11 +46,9 @@ Only technologies with confirmed, current implementation usage are listed.
 | Code display | `prism-react-renderer` | `features/workbench/components/code-viewer.tsx` |
 | Markdown rendering | `react-markdown` + `remark-gfm` | `features/workbench/components/markdown-viewer.tsx` |
 | Command palette | `cmdk` | `features/shell/components/command-palette.tsx` |
-| Testing | Vitest | `test/`, `**/*.test.ts` (168 tests, 12 files) |
+| Testing | Vitest | `test/`, `**/*.test.ts` (192 tests, 12 files) |
 | CI | GitHub Actions | `.github/workflows/ci.yml` |
 | Hosting | Vercel | `.vercel/project.json`; deploys currently manual (`vercel --prod`) — no Git↔Vercel auto-deploy integration is configured |
-
-**Present in `package.json` but not currently used anywhere in source** (confirmed by repository-wide import search): `react-hook-form`. Auth forms use `useState`/`useTransition` with Server Actions instead.
 
 ---
 
@@ -67,8 +65,9 @@ components/             Non-feature-owned UI
   auth/                    login/signup form components (client)
   dashboard/               thin page-composition components consumed by app/ routes
                            (dashboard-overview, generator-view, workbench-view,
-                           project-settings-view) — each fetches server data and
-                           composes the real UI from features/
+                           project-settings-view, generation-history-view) —
+                           each fetches server data and composes the real UI
+                           from features/
   providers/               theme provider, toast provider
   ui/                      shadcn/ui primitives (button, card, dialog, select, ...)
 
@@ -84,6 +83,8 @@ features/               Feature modules — the primary unit of UI ownership
                            feature showcase, nav, footer)
   settings/                Project Settings shell components (dialect/naming
                            selectors, currently backend-gated/disabled)
+  history/                 Generation History list/item + delete confirmation,
+                           backed by useDeleteGeneration (added Sprint 1, S1-003)
 
   Each module follows the same internal shape where populated:
   components/, hooks/, types/, actions/ (client callers of Server Actions),
@@ -151,7 +152,7 @@ Configuration files (repo root):
 
 ## 5. Architecture Overview
 
-**Routing.** App Router with two route groups: `app/(auth)/` (`login/page.tsx`, `signup/page.tsx`, shared layout) and `app/(dashboard)/` (`dashboard/page.tsx`, `dashboard/generator/page.tsx`, `dashboard/projects/[id]/workbench/page.tsx`, `dashboard/projects/[id]/settings/page.tsx`, shared layout). `app/page.tsx` is the public marketing landing page (not a redirect). Confirmed current build output includes 8 routes total: `/`, `/_not-found`, `/dashboard`, `/dashboard/generator`, `/dashboard/projects/[id]/settings`, `/dashboard/projects/[id]/workbench`, `/login`, `/signup`.
+**Routing.** App Router with two route groups: `app/(auth)/` (`login/page.tsx`, `signup/page.tsx`, shared layout) and `app/(dashboard)/` (`dashboard/page.tsx`, `dashboard/generator/page.tsx`, `dashboard/projects/[id]/workbench/page.tsx`, `dashboard/projects/[id]/settings/page.tsx`, `dashboard/projects/[id]/history/page.tsx`, shared layout). `app/page.tsx` is the public marketing landing page (not a redirect). Confirmed current build output includes 9 routes total: `/`, `/_not-found`, `/dashboard`, `/dashboard/generator`, `/dashboard/projects/[id]/history`, `/dashboard/projects/[id]/settings`, `/dashboard/projects/[id]/workbench`, `/login`, `/signup`.
 
 **Layouts.** `app/layout.tsx` is the root shell. `app/(dashboard)/layout.tsx` calls `requireUser()` (an auth gate) and composes `AppSidebar` + `TopNav` + `CommandPalette` + `KeyboardShortcutProvider` around a scrollable main content area. `app/(auth)/layout.tsx` wraps the login/signup pages.
 
@@ -159,7 +160,7 @@ Configuration files (repo root):
 
 **Client/server boundaries.** Page-composition components (`components/dashboard/*`) and layouts are async Server Components that fetch data directly. Interactive components (forms, the schema generator, output viewers) are explicitly marked `"use client"`. Server Actions (`lib/actions/*.ts`, `"use server"`) are the sole boundary between client interaction and backend logic — feature-local `hooks/`/`actions/` folders hold client-side orchestration (calling a Server Action, then pushing the result into a Zustand store), never business logic itself.
 
-**Server Actions.** `lib/actions/auth.ts` (signUp/signIn/signOut), `lib/actions/project.actions.ts` (project CRUD), `lib/actions/generation.actions.ts` (fetch a generation/project's generations), `lib/actions/generate-schema.ts` (authenticated schema generation — auth check, Zod validation, delegates to `lib/services/generation.service.ts`), `lib/actions/generate-schema-public.ts` (unauthenticated sandbox generation — rate-limited via a `check_sandbox_rate_limit` Supabase RPC, never persists data).
+**Server Actions.** `lib/actions/auth.ts` (signUp/signIn/signOut), `lib/actions/project.actions.ts` (project CRUD), `lib/actions/generation.actions.ts` (fetch a generation/project's generations, plus `deleteGenerationAction` added Sprint 1), `lib/actions/generate-schema.ts` (authenticated schema generation — auth check, Zod validation, delegates to `lib/services/generation.service.ts`), `lib/actions/generate-schema-public.ts` (unauthenticated sandbox generation — rate-limited via a `check_sandbox_rate_limit` Supabase RPC, never persists data).
 
 **The generation pipeline** (`lib/services/generation.service.ts`):
 ```
@@ -193,6 +194,7 @@ Features confirmed implemented and reachable in the current codebase:
 - **Public, unauthenticated demo sandbox** — a landing-page "try it now" flow (`features/landing/components/hero-sandbox.tsx`) that runs the same generation pipeline without persistence, rate-limited to 5 requests/hour per visitor (IP-hash-based, fails closed if the rate limiter is unreachable).
 - **Project-based organization** — users create named projects; generations are saved under a project.
 - **Generation persistence and retrieval** — generations are saved to Supabase; a per-project Developer Workbench route displays a project's latest generation by default, or a specific past generation via `?generation=<id>`.
+- **Generation History** — a per-project route (`/dashboard/projects/[id]/history`, added Sprint 1) lists every past generation (newest first), opens any of them into the Workbench, and deletes one behind a confirmation dialog.
 - **Developer Workbench** — resizable split-pane view of generation output, with a pan/zoom-capable Mermaid ER diagram viewer, a line-numbered code viewer, and per-artifact copy/download actions.
 - **Authentication** — sign up, log in, log out via Supabase Auth; session-cookie based, protected routes enforced at both the middleware and layout level.
 - **Dashboard** — authenticated home showing a user's projects as selectable, keyboard-accessible cards.
@@ -225,46 +227,47 @@ Principles observed as consistently applied throughout the codebase, and/or expl
 
 ## 8. Current Repository Status
 
-As independently verified during Sprint 0 (task S0-001, re-confirmed for this document):
+As verified at Sprint 1 closure (task S1-005):
 
 | Check | Status |
 |---|---|
-| Repository health | Healthy — the one build-blocking issue found during Sprint 0 (an untracked, pre-refactor stray file, `components/dashboard/schema-generator.tsx`) has been removed; the underlying committed codebase was never broken |
-| Build (`npm run build`) | ✅ Passing — compiles successfully, all 8 routes generated |
+| Repository health | Healthy — Sprint 0 established a clean baseline; Sprint 1 shipped four implementation tasks on top of it with no regressions |
+| Build (`npm run build`) | ✅ Passing — compiles successfully, all 9 routes generated |
 | TypeScript (`npm run typecheck`) | ✅ Passing — zero errors |
 | Lint (`npm run lint`) | ✅ Passing — zero errors, zero warnings |
-| Tests (`npm test`) | ✅ Passing — 168/168 tests across 12 files |
+| Tests (`npm test`) | ✅ Passing — 192/192 tests across 12 files |
 | Git working tree | Clean relative to `HEAD` — no unintended tracked-file changes |
-| Sprint 0 progress | Recovery Audit complete (full repository inspection); workspace cleanup complete (S0-001); this document (S0-002A) restores the master context. `Sprint-00-Recovery.md` remains an empty placeholder, not yet in scope for this task |
+| Sprint 0 | ✅ Complete — see `Sprint-00-Recovery.md` |
+| Sprint 1 | ✅ Complete — S1-001 (FK indexing), S1-002 (join-table warning), S1-003 (Generation History), S1-004 (UX polish/dependency hygiene), S1-005 (this closure pass) |
 
 ---
 
 ## 9. Known Risks
 
-Carried forward from the Sprint 0 Recovery Audit — not re-assessed or expanded here, per this task's scope:
+Updated at Sprint 1 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
 
-- **Documentation/continuity gap.** A shipped nine-part "UX 2.0" initiative (design tokens, command palette, routing overhaul, split-pane workbench, public sandbox, and more) is referenced throughout code comments and commit messages via an "Engineering Spec" that does not exist anywhere in this repository. `ARCHITECTURE.md`'s roadmap pointer and `docs/planning/v0.7.1-roadmap.md` describe an older, partially superseded plan and have not been reconciled with what has actually shipped.
-- **Unaddressed self-rated Critical tech debt.** `TECH_DEBT.md` rates "no FK-column indexing in generated SQL/Drizzle output" (TD-003) and "join tables can get a surrogate PK with no uniqueness constraint" (TD-004) as Critical; neither has been implemented, meaning every schema this tool generates for end users currently ships with both gaps.
-- **No Git↔Vercel auto-deploy integration** (TD-005) — every `VERCEL_GIT_*` variable is empty; deploys to production are manual (`vercel --prod`) only.
-- **Placeholder/test data visible in the production Supabase account** (TD-015) — not yet cleaned up; requires explicit sign-off before deletion per the team's own stated process.
-- **Possible tech-debt ledger drift.** `TECH_DEBT.md` TD-006 ("history/navigation repository functions implemented but never called") may already be partially resolved by the shipped Developer Workbench route, which does call `getGeneration` — this was flagged during the Recovery Audit as needing re-verification, not yet corrected.
-- **A minor, unused dependency** (`react-hook-form`) and one misplaced dependency (`shadcn`, a CLI-only tool, currently listed under runtime `dependencies` rather than `devDependencies`) remain in `package.json`.
+- ~~Unaddressed self-rated Critical tech debt (TD-003, TD-004)~~ — **Resolved, Sprint 1 (S1-001, S1-002).** Every generated schema now gets FK-column indexes and a join-table composite-uniqueness warning where applicable.
+- ~~TD-006 (history/navigation, `deleteGeneration` unused)~~ — **Resolved, Sprint 1 (S1-003).** A full Generation History UI now exists; one disclosed gap remains — the two-account cross-user isolation test called for in `docs/planning/v0.7.1-roadmap.md` Milestone 3 was not performed live (see `TECH_DEBT.md` TD-006).
+- ~~Minor unused/misplaced dependencies (`react-hook-form`, `shadcn`)~~ — **Resolved, Sprint 1 (S1-004).**
+- **Documentation/continuity gap around "UX 2.0" — still open.** The nine-milestone "UX 2.0" initiative is documented in `docs/specifications/UX-2.0-Engineering-Specification.md` (recovered during Sprint 0), but the original "Engineering Spec" the code comments reference still does not exist anywhere in this repository. Unrelated to Sprint 1's scope.
+- **No Git↔Vercel auto-deploy integration** (TD-005) — still open, human-gated by design; not part of Sprint 1's scope.
+- **Placeholder/test data visible in the production Supabase account** (TD-015) — still open, requires explicit sign-off before deletion; not part of Sprint 1's scope. Note: Sprint 0's own live verification (S0-005) added one more throwaway test project to this same account.
 
-The full, unabridged risk and issue inventory lives in the Sprint 0 Recovery Audit output and `TECH_DEBT.md`; this section is a summary, not a replacement for either.
+The full, unabridged risk and issue inventory lives in `TECH_DEBT.md`; this section is a summary, not a replacement for it.
 
 ---
 
 ## 10. Current Sprint Summary
 
-**Sprint 0 — Project Recovery**
+**Sprint 0 — Project Recovery: ✅ Complete.** Full detail in `Sprint-00-Recovery.md`. Established a verified engineering baseline (build/typecheck/lint/test clean), recovered/produced this document and `docs/specifications/UX-2.0-Engineering-Specification.md`, synchronized `ARCHITECTURE.md` and `TECH_DEBT.md`, and ran a full live runtime verification pass (S0-005) — zero blocking issues found.
 
-**Completed:**
-- Full repository-wide Recovery Audit (build, runtime-adjacent static checks, TypeScript, lint, architecture, routing, authentication, dependencies, code quality, documentation) — read-only inspection, no code changes.
-- S0-001 — Workspace Recovery: verified and removed one untracked, orphaned pre-refactor file (`components/dashboard/schema-generator.tsx`) that was causing local build/typecheck failures unrelated to the committed codebase. Re-verified typecheck, lint, test, and build all pass clean afterward.
-- S0-002A — Master Context Recovery: this document.
+**Sprint 1 — Product Development: ✅ Complete.**
+- S1-001 — TD-003 Foreign Key Indexing: every relationship's source columns now get a supporting index in both SQL and Drizzle output.
+- S1-002 — TD-004 Join-Table Composite Uniqueness Warning: a new analyzer warning flags join-table-shaped tables missing a uniqueness guarantee on their FK pair.
+- S1-003 — TD-006 Generation History & Navigation UI: a new `/dashboard/projects/[id]/history` route (browse, open, delete past generations), closing the last gap in the already-existing repository/Server Action layer.
+- S1-004 — UX Polish & Dependency Hygiene: TD-013 (prompt character counters), TD-018 (top-bar title fallback), TD-019 (signup email-confirmation messaging), and removal of an unused dependency plus relocation of a misplaced one.
+- S1-005 — Sprint 1 Closure: this documentation-synchronization pass (`TECH_DEBT.md`, `docs/planning/v0.7.1-roadmap.md`, `CHANGELOG.md`, `docs/specifications/UX-2.0-Engineering-Specification.md`, this document).
 
-**Approved work:** Sprint 0 has proceeded task-by-task (S0-001 → S0-002A) with each task's scope explicitly bounded by its own task brief; no work beyond each stated scope has been performed.
+**Known residual gap, disclosed not hidden:** the Milestone 3 (S1-003) acceptance criterion calling for an explicit two-account cross-user isolation test was not performed live — see `TECH_DEBT.md` TD-006 and `docs/planning/v0.7.1-roadmap.md` Milestone 3.
 
-**Remaining Sprint 0 tasks (known as of this document):**
-- `Sprint-00-Recovery.md` remains an empty placeholder and has not yet been populated — its scope was not part of this task (S0-002A covered `SCHEMACRAFT_AI_MASTER_CONTEXT.md` only).
-- The Recovery Audit's own recommended backlog (documentation reconciliation with the UX 2.0 work, TECH_DEBT.md re-verification, dependency hygiene cleanup, and a runtime/browser verification pass that the audit's static-analysis scope could not cover) remains open and has not been scheduled into a specific Sprint 0 task yet.
+**Remaining open work (not part of Sprint 1, not newly invented here):** `docs/planning/v0.7.1-roadmap.md` Milestone 4 (Git↔Vercel integration, production data cleanup — human-gated) and the rest of Milestone 5 (native `ENUM` reconsideration, CHECK-constraint prompt guidance, composite FK physical constraints, VARCHAR sizing, CSP headers).

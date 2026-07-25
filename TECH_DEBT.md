@@ -32,21 +32,25 @@ Observed directly in production and local testing — the user sees `513f5d94-9e
 
 **Fix (frontend modularization, Day 3):** an explicit `children` render function on `SelectValue` that looks the title up directly from the `projects` array — Base UI's own documented pattern for this case, not a workaround. See `docs/architecture/frontend-modularization.md` Day 3 entry.
 
-## TD-003 — No FK-column indexing in generated SQL/Drizzle
+## TD-003 — No FK-column indexing in generated SQL/Drizzle — RESOLVED
 
-**Where:** `lib/compiler/sql`, `lib/compiler/drizzle`
-
-**Priority:** Critical
-
-Postgres doesn't auto-index FK columns; every schema this tool generates for its users is missing a standard performance safeguard. Tracked as v0.7.1 Milestone 2b.
-
-## TD-004 — Join tables can get a surrogate PK with no uniqueness constraint on the FK pair
-
-**Where:** AI output + `lib/ast/analyzer.ts` (no check for this shape today)
+**Where:** `lib/compiler/sql`, `lib/compiler/drizzle`, `lib/compiler/shared/foreign-key-indexes.ts`
 
 **Priority:** Critical
 
-Directly observed: one "Blog" generation produced `post_tags` with a UUID PK and zero constraint on `(post_id, tag_id)` — duplicate pairs are not prevented at the DB level in schemas this tool generates. Tracked as v0.7.1 Milestone 2c (new analyzer warning, not an error — preserves "AST stays valid, compiler still runs").
+Postgres doesn't auto-index FK columns; every schema this tool generates for its users was missing a standard performance safeguard. Tracked as v0.7.1 Milestone 2b.
+
+**Fix (Sprint 1, S1-001):** every relationship's source columns now get a supporting index in both SQL (`CREATE INDEX`) and Drizzle (`index()` builder) output, via a new shared `resolveForeignKeyIndexes` helper. Dedup is column-set based — a column set already covered by the primary key, a column-level `unique` flag, an explicit AST index, or a table-level unique constraint never gets a redundant second index. 14 new tests (single FK, multiple FK, composite FK, and 6 dedup/regression cases across both compilers).
+
+## TD-004 — Join tables can get a surrogate PK with no uniqueness constraint on the FK pair — RESOLVED
+
+**Where:** `lib/ast/analyzer.ts`
+
+**Priority:** Critical
+
+Directly observed: one "Blog" generation produced `post_tags` with a UUID PK and zero constraint on `(post_id, tag_id)` — duplicate pairs were not prevented at the DB level in schemas this tool generates. Tracked as v0.7.1 Milestone 2c (new analyzer warning, not an error — preserves "AST stays valid, compiler still runs").
+
+**Fix (Sprint 1, S1-002):** new `AnalysisWarningCode.JoinTableMissingUniqueConstraint`. Detection is deliberately conservative to avoid false positives on ordinary multi-FK tables (e.g. `posts` with `author_id`/`editor_id`): a table only qualifies when it has exactly two single-column outgoing relationships and no columns beyond the FK pair, its own primary key, and incidental metadata (`created_at`/`updated_at`). Self-referencing join tables (e.g. `friendships`) are caught the same way, since detection never inspects the target table. 11 new tests, including the `post_tags` fixture directly observed in production, previously pinned in `lib/ast/analyzer.test.ts` as a deliberate "known gap" baseline specifically so it would need this update.
 
 ## TD-005 — No Git↔Vercel integration
 
@@ -56,15 +60,15 @@ Directly observed: one "Blog" generation produced `post_tags` with a UUID PK and
 
 Confirmed twice: every `VERCEL_GIT_*` var is empty. Pushes to `main` never deploy; deploys are manual `vercel --prod` only. Tracked as v0.7.1 Milestone 4 — requires explicit user sign-off before enabling, since it's a standing behavior change (every future `main` push would start auto-deploying).
 
-## TD-006 — `getGeneration`/`getProjectGenerations` now used by the Workbench route; `deleteGeneration` still unused — PARTIALLY RESOLVED
+## TD-006 — `getGeneration`/`getProjectGenerations`/`deleteGeneration` implemented but never called — RESOLVED
 
-**Where:** `lib/repositories/generation.repository.ts`, consumed via `lib/actions/generation.actions.ts` and `components/dashboard/workbench-view.tsx`
+**Where:** `lib/repositories/generation.repository.ts`, consumed via `lib/actions/generation.actions.ts`, `components/dashboard/{workbench-view,generation-history-view}.tsx`, and `features/history/`
 
-**Priority:** Medium (downgraded from High — the "backend-complete, no UI" gap this item tracked is now half-closed)
+**Priority:** was Critical/High, now closed
 
-**Verified via Sprint 0 runtime verification (S0-005):** `getGenerationAction`/`getProjectGenerationsAction` are called live by the Developer Workbench route (`/dashboard/projects/[id]/workbench`) — confirmed by running a real generation and watching it persist and correctly re-render there with its version number, date, and original prompt. This closes the original "implemented but never called" finding for `getGeneration`/`getProjectGenerations` specifically.
+**Verified via Sprint 0 runtime verification (S0-005):** `getGenerationAction`/`getProjectGenerationsAction` were already called live by the Developer Workbench route, confirmed by running a real generation and watching it persist and correctly re-render there.
 
-**Still open:** `deleteGeneration` has zero call sites anywhere in the codebase (confirmed by a repository-wide search — only its own definition references it). No delete UI exists, and there is still no full history-*list* screen (browse every past generation for a project); the Workbench route only shows the latest generation or one specified by `?generation=<id>`, per `docs/specifications/UX-2.0-Engineering-Specification.md` §8 (Known UX Limitations). Tracked as v0.7.1 Milestone 3.
+**Fix (Sprint 1, S1-003):** the remaining gap — no `deleteGeneration` caller and no history-*list* screen — is closed. A new `features/history` module (`/dashboard/projects/[id]/history`, reachable from a new icon on `ProjectCard`) lists every generation for a project (newest first), opens any of them into the existing Workbench via `?generation=<id>`, and deletes one via a new `deleteGenerationAction` (the first Server Action wrapping `deleteGeneration`, confirmed via repository-wide search before implementation to not duplicate any existing entry point) behind a confirmation dialog. One residual verification gap, disclosed rather than silently claimed: the original roadmap's Milestone 3 acceptance criteria called for an explicit two-account cross-user isolation test; this was not performed live — the ownership check mirrors `getGenerationAction`'s already-verified pattern, but the two-account scenario itself remains unexercised.
 
 ## TD-007 — Enums compile to `TEXT + CHECK`, not native Postgres `ENUM`
 
@@ -114,13 +118,15 @@ Previously documented a `src/app/`, `src/components/`, `src/lib/` layout that di
 
 Not actively insecure, but a missed hardening layer given the app renders AI-generated content.
 
-## TD-013 — No client-side character-count/limit indicator on the prompt textarea
+## TD-013 — No client-side character-count/limit indicator on the prompt textarea — RESOLVED
 
-**Where:** `features/ai-workspace/components/prompt-editor.tsx` (moved from `components/dashboard/prompt-editor.tsx` during the frontend modularization, Day 3)
+**Where:** `features/ai-workspace/components/prompt-editor.tsx`, `features/landing/components/hero-sandbox.tsx`
 
 **Priority:** Low
 
-The server enforces a 4000-character cap with a clear rejection message, but there's no client-side feedback until submission is attempted.
+The server enforces a 4000-character cap (500 for the public sandbox) with a clear rejection message, but there was no client-side feedback until submission was attempted.
+
+**Fix (Sprint 1, S1-004):** both prompt textareas now show a live `{count} / {max}` counter; the authenticated Generator's textarea also gained a `maxLength={4000}` so it can never exceed the server's own cap in the first place (the sandbox's textarea already had `maxLength={500}`).
 
 ## TD-014 — `aiConfig.model` is a Google-maintained alias, not a pinned version
 
@@ -158,18 +164,22 @@ Found during the v0.7.1 production end-to-end validation pass: project cards ("T
 
 Not a bug, but there's no documented internal process for verifying/rotating secrets other than functional testing after the fact — this is what made the v0.7.0 production debugging cycle take five rounds. Worth a short internal runbook note, no code change required.
 
-## TD-018 — Top-bar page title falls back to "SchemaCraft AI" on the Workbench and Project Settings routes
+## TD-018 — Top-bar page title falls back to "SchemaCraft AI" on the Workbench and Project Settings routes — RESOLVED
 
-**Where:** `features/shell/lib/nav-items.ts`, consumed by `features/shell/components/page-title.tsx`
-
-**Priority:** Low
-
-**Verified via Sprint 0 runtime verification (S0-005):** `NAV_ITEMS` only lists `/dashboard` and `/dashboard/generator`; `PageTitle` looks up the current route in that list and falls back to the app name when no entry matches. Confirmed live on `/dashboard/projects/[id]/workbench` and `/dashboard/projects/[id]/settings` — both show "SchemaCraft AI" in the top bar instead of "Workbench" / "Project Settings". Cosmetic only: each page's own `<h1>` heading is correct on both routes.
-
-## TD-019 — Post-signup UX gives no explanation of the email-confirmation requirement
-
-**Where:** `lib/actions/auth.ts` (`signUp`)
+**Where:** `features/shell/components/page-title.tsx`
 
 **Priority:** Low
 
-**Verified via Sprint 0 runtime verification (S0-005):** `signUp()` calls `redirect("/dashboard")` unconditionally on success, without checking whether a session was actually established. When the Supabase project requires email confirmation (as this project's does), no session exists yet, so `proxy.ts` immediately redirects the still-unauthenticated request back to `/login` with no explanation shown. The user only learns a confirmation email is required if they then attempt to sign in and see "Please confirm your email before signing in." The block itself is correct and not a security gap — this is purely a missing success-state message on the signup flow.
+**Verified via Sprint 0 runtime verification (S0-005):** `NAV_ITEMS` only lists `/dashboard` and `/dashboard/generator`; `PageTitle` looks up the current route in that list and falls back to the app name when no entry matches. Confirmed live on `/dashboard/projects/[id]/workbench` and `/dashboard/projects/[id]/settings` — both showed "SchemaCraft AI" in the top bar instead of "Workbench" / "Project Settings".
+
+**Fix (Sprint 1, S1-004):** `PageTitle` now resolves per-project routes by path suffix (`/workbench` → "Workbench", `/settings` → "Project Settings", `/history` → "History") in addition to the exact `NAV_ITEMS` match, since the dynamic `[id]` segment rules out an exact match for these routes. Deliberately kept separate from `NAV_ITEMS` itself, which remains scoped to sidebar destinations only, so `AppSidebar`'s active-state highlighting is unaffected. The new `/history` route (S1-003) is covered by the same fix.
+
+## TD-019 — Post-signup UX gives no explanation of the email-confirmation requirement — RESOLVED
+
+**Where:** `lib/actions/auth.ts` (`signUp`), `components/auth/signup-form.tsx`
+
+**Priority:** Low
+
+**Verified via Sprint 0 runtime verification (S0-005):** `signUp()` called `redirect("/dashboard")` unconditionally on success, without checking whether a session was actually established. When the Supabase project requires email confirmation (as this project's does), no session existed yet, so `proxy.ts` immediately redirected the still-unauthenticated request back to `/login` with no explanation shown. The block itself was correct and not a security gap — this was purely a missing success-state message.
+
+**Fix (Sprint 1, S1-004):** `signUp()` now checks `data.session` and returns `{ ok: true, requiresConfirmation: true }` instead of redirecting when no session was established; `SignupForm` shows "Account created — check your email to confirm it before signing in." for that case.
