@@ -3,6 +3,7 @@ import { ArrowRightIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { HeroSandbox } from "@/features/landing/components/hero-sandbox"
 
 export function HeroSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
@@ -34,6 +35,11 @@ export function HeroSection({ isAuthenticated }: { isAuthenticated: boolean }) {
           </>
         )}
       </div>
+      {!isAuthenticated && (
+        <div className="w-full pt-4">
+          <HeroSandbox />
+        </div>
+      )}
     </section>
   )
 }

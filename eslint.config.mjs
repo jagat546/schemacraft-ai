@@ -60,9 +60,9 @@ const eslintConfig = defineConfig([
             {
               target: "./features/landing",
               from: "./features",
-              except: ["./landing"],
+              except: ["./landing", "./workbench"],
               message:
-                "features/landing has no dependencies on other feature modules (see docs/architecture/frontend-modularization.md).",
+                "features/landing may only depend on features/workbench, to render sandbox output through the same OutputTabs the authenticated app uses (see docs/architecture/frontend-modularization.md).",
             },
             {
               target: "./features/settings",
