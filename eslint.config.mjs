@@ -71,6 +71,13 @@ const eslintConfig = defineConfig([
               message:
                 "features/settings has no dependencies on other feature modules (see docs/architecture/frontend-modularization.md).",
             },
+            {
+              target: "./features/history",
+              from: "./features",
+              except: ["./history"],
+              message:
+                "features/history has no dependencies on other feature modules (see docs/architecture/frontend-modularization.md).",
+            },
           ],
         },
       ],

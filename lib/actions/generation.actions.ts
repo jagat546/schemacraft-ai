@@ -4,6 +4,7 @@ import { z } from "zod"
 
 import { requireUser } from "@/lib/auth/require-user"
 import {
+  deleteGeneration,
   getGeneration,
   getProjectGenerations,
   type Generation,
@@ -52,4 +53,33 @@ export async function getProjectGenerationsAction(input: {
   }
 
   return getProjectGenerations(parsed.data.projectId)
+}
+
+export async function deleteGenerationAction(input: {
+  generationId: string
+  projectId: string
+}): Promise<RepositoryResult<null>> {
+  await requireUser()
+
+  const parsed = z
+    .object({ generationId: z.uuid(), projectId: z.uuid() })
+    .safeParse(input)
+
+  if (!parsed.success) {
+    return { ok: false, error: "Generation not found." }
+  }
+
+  // Same "wrong project = not found" defense as getGenerationAction: RLS
+  // already keeps other users' rows out entirely, this just stops a
+  // generationId/projectId mismatch from deleting a row the caller didn't
+  // mean to target.
+  const existing = await getGeneration(parsed.data.generationId)
+  if (!existing.ok) {
+    return existing
+  }
+  if (existing.data.projectId !== parsed.data.projectId) {
+    return { ok: false, error: "Generation not found." }
+  }
+
+  return deleteGeneration(parsed.data.generationId)
 }

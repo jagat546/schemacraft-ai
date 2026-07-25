@@ -10,7 +10,7 @@
 // active project via project-store, immediately reflected in the AI
 // Workspace's own selector (both read the same store).
 import Link from "next/link"
-import { Code2Icon, SettingsIcon } from "lucide-react"
+import { Code2Icon, HistoryIcon, SettingsIcon } from "lucide-react"
 
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -56,6 +56,14 @@ export function ProjectCard({
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Code2Icon className="size-4" />
+          </Link>
+          <Link
+            href={`/dashboard/projects/${project.id}/history`}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Open ${project.title} history`}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <HistoryIcon className="size-4" />
           </Link>
           <Link
             href={`/dashboard/projects/${project.id}/settings`}
