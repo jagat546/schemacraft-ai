@@ -107,7 +107,7 @@ As of the Sprint 0 closing verification (S0-007, re-run in the same session as t
 Originally carried forward from the Recovery Audit (S0-000); updated at Sprint 0 closure (S0-007) to reflect what subsequent tasks resolved. Not re-assessed or expanded beyond that update — these remain inputs for Sprint 1, not re-litigated here:
 
 - **Documentation/continuity gap around "UX 2.0" — mitigated, not eliminated.** The nine shipped milestones' rationale is now recovered in `docs/specifications/UX-2.0-Engineering-Specification.md` (S0-003), reconstructed from the implementation itself. The original "Engineering Spec" the code comments reference still does not exist anywhere in the repository, and `docs/planning/v0.7.1-roadmap.md` still doesn't mention UX 2.0 at all (§4) — the risk is now documented and bounded rather than silently open, but the underlying gap in the roadmap document itself persists by design (out of Sprint 0's scope).
-- **Two self-rated Critical tech-debt items remain unresolved.** `TECH_DEBT.md` TD-003 (no FK-column indexing in generated SQL/Drizzle output) and TD-004 (join tables can get a surrogate PK with no uniqueness constraint) — both affect every schema this tool generates for end users today. Unchanged by Sprint 0; carried to Sprint 1 as-is.
+- ~~Two self-rated Critical tech-debt items remain unresolved (TD-003, TD-004)~~ — **Resolved by Sprint 1 (S1-001, S1-002).** This bullet described Sprint 0's closing state (2026-07-25) — carried to Sprint 1 exactly as planned, and closed there. See `TECH_DEBT.md` for the current, authoritative status of every item.
 - **No Git↔Vercel auto-deploy integration** (TD-005) — production deploys remain manual (`vercel --prod`). Unchanged by Sprint 0.
 - **Placeholder/test data visible in the production Supabase account** (TD-015) — not yet cleaned up; requires explicit sign-off before deletion. Unchanged by Sprint 0. (Sprint 0's own live-verification work in S0-005 added one more throwaway account/project to this same production account, clearly labeled "Sprint0 Runtime Verification Test" — flagged here for visibility, not treated as new debt, since it's the same accepted pattern TD-015 already tracks.)
 - ~~Possible tech-debt ledger drift — TD-006 may be stale~~ — **Resolved by S0-006.** Re-verified against the live-tested Workbench route and corrected in `TECH_DEBT.md`; no longer an open risk.
@@ -134,16 +134,16 @@ Evaluated at closure (S0-007):
 
 Work identified during Sprint 0 but explicitly out of Sprint 0's scope, deferred to future work per `TECH_DEBT.md` and `docs/planning/v0.7.1-roadmap.md`:
 
-- **FK-column indexing** in generated SQL and Drizzle output (TD-003).
-- **Join-table composite-uniqueness analyzer warning** (TD-004).
-- **History/navigation UI verification** — confirming TD-006's current status is Sprint 0 work (§4); any remaining implementation is not.
+- ~~**FK-column indexing** in generated SQL and Drizzle output (TD-003).~~ **Resolved, Sprint 1 (S1-001).**
+- ~~**Join-table composite-uniqueness analyzer warning** (TD-004).~~ **Resolved, Sprint 1 (S1-002).**
+- ~~**History/navigation UI verification** — confirming TD-006's current status is Sprint 0 work (§4); any remaining implementation is not.~~ **Fully resolved, Sprint 1 (S1-003)** — a complete history list/open/delete UI now exists, closing the "remaining implementation" this bullet deferred.
 - **Native Postgres `ENUM` type support**, in place of the current `TEXT + CHECK` compilation (TD-007).
 - **Composite (multi-column) FK physical constraints in Drizzle output** (TD-008).
 - **Business-rule `CHECK` constraint generation** beyond enum values (TD-010).
 - **Git↔Vercel deployment integration** (TD-005) — an operational change requiring explicit sign-off, independent of any code milestone.
 - **Production placeholder-project data cleanup** (TD-015) — a one-way data change requiring explicit sign-off.
 - Lower-priority polish items already tracked in `TECH_DEBT.md` (VARCHAR sizing, sample-data realism, CSP headers, client-side prompt-length indicator) — none are Sprint 0 scope.
-- **Top-bar title fallback on the Workbench/Settings routes** (TD-018, added S0-006) and **unclear post-signup email-confirmation messaging** (TD-019, added S0-006) — both low-priority, non-blocking, discovered during Sprint 0's own runtime verification.
+- ~~**Top-bar title fallback on the Workbench/Settings routes** (TD-018, added S0-006) and **unclear post-signup email-confirmation messaging** (TD-019, added S0-006)~~ — **Both resolved, Sprint 1 (S1-004).**
 - **`docs/planning/v0.7.1-roadmap.md` reconciliation** — recommended as the first Sprint 1 documentation item (§7, criterion 4).
 - **Minor dependency hygiene** — remove unused `react-hook-form`; move `shadcn` to `devDependencies`.
 
@@ -183,6 +183,10 @@ Sprint Closure (S0-007)
 
 ## 10. Next Milestone
 
+*(Historical, as recommended at Sprint 0's close on 2026-07-25 — see the update below for what actually happened.)*
+
 Per the repository's own tracked planning documents, the next candidate body of product work is **v0.7.1 Milestone 2 — Critical Bug Fixes** (`docs/planning/v0.7.1-roadmap.md`), covering the two still-open, self-rated Critical items: FK-column indexing (TD-003) and the join-table composite-uniqueness analyzer warning (TD-004). That roadmap document's status line marks Milestones 2 through 5 as "not yet started."
 
 This should be read with the caveat recorded in §4, §6, and §7 (exit criterion 4): `docs/planning/v0.7.1-roadmap.md` itself was never edited during Sprint 0 — by design, not oversight — so it still doesn't mention the shipped "UX 2.0" work at all. It remains unconfirmed from repository documentation alone whether this roadmap is still the authoritative next-milestone plan or has been superseded by UX 2.0. Resolving that is recommended as Sprint 1's first documentation item (§4); no planning for the next milestone has been performed as part of Sprint 0.
+
+**Update (Sprint 1 closure, S1-005, 2026-07-26):** this recommendation was followed. Sprint 1 (S1-001 through S1-004) resolved TD-003, TD-004, and TD-006 (Milestones 2b, 2c, and 3), plus TD-013/TD-018/TD-019 as a polish pass, and S1-005 reconciled `docs/planning/v0.7.1-roadmap.md` against what actually shipped — closing the roadmap-accuracy gap this section flagged. See `SCHEMACRAFT_AI_MASTER_CONTEXT.md` §10 and `TECH_DEBT.md` for current, authoritative status.
