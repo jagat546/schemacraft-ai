@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/require-user"
 import {
   createProject,
   deleteProject,
+  getProjectById,
   getProjectsForUser,
   updateProject,
   type Project,
@@ -80,4 +81,18 @@ export async function getProjectsAction(): Promise<RepositoryResult<Project[]>> 
   await requireUser()
 
   return getProjectsForUser()
+}
+
+export async function getProjectByIdAction(input: {
+  projectId: string
+}): Promise<RepositoryResult<Project>> {
+  await requireUser()
+
+  const parsed = z.object({ projectId: z.uuid() }).safeParse(input)
+
+  if (!parsed.success) {
+    return { ok: false, error: "Project not found." }
+  }
+
+  return getProjectById(parsed.data.projectId)
 }

@@ -64,6 +64,13 @@ const eslintConfig = defineConfig([
               message:
                 "features/landing has no dependencies on other feature modules (see docs/architecture/frontend-modularization.md).",
             },
+            {
+              target: "./features/settings",
+              from: "./features",
+              except: ["./settings"],
+              message:
+                "features/settings has no dependencies on other feature modules (see docs/architecture/frontend-modularization.md).",
+            },
           ],
         },
       ],

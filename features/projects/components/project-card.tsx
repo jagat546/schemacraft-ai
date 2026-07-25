@@ -10,7 +10,7 @@
 // active project via project-store, immediately reflected in the AI
 // Workspace's own selector (both read the same store).
 import Link from "next/link"
-import { Code2Icon } from "lucide-react"
+import { Code2Icon, SettingsIcon } from "lucide-react"
 
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -48,7 +48,7 @@ export function ProjectCard({
       <CardHeader>
         <CardTitle>{project.title}</CardTitle>
         {project.description && <CardDescription>{project.description}</CardDescription>}
-        <CardAction>
+        <CardAction className="flex items-center gap-1">
           <Link
             href={`/dashboard/projects/${project.id}/workbench`}
             onClick={(event) => event.stopPropagation()}
@@ -56,6 +56,14 @@ export function ProjectCard({
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Code2Icon className="size-4" />
+          </Link>
+          <Link
+            href={`/dashboard/projects/${project.id}/settings`}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Open ${project.title} settings`}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <SettingsIcon className="size-4" />
           </Link>
         </CardAction>
       </CardHeader>
