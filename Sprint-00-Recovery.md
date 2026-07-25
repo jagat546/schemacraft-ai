@@ -2,7 +2,9 @@
 
 **This is the Sprint 0 execution record.** It tracks why Sprint 0 exists, what has been done, what remains, and what closes it. For permanent, evergreen project facts (tech stack, architecture, features), see `SCHEMACRAFT_AI_MASTER_CONTEXT.md` — that information is deliberately not repeated here.
 
-**Last updated:** 2026-07-25, after task S0-002B.
+**Last updated:** 2026-07-25, after task S0-007 (Sprint 0 closure).
+
+**Sprint 0 completion date:** 2026-07-25
 
 ---
 
@@ -11,7 +13,7 @@
 - **Sprint name:** Sprint 0 — Project Recovery
 - **Sprint objective:** Establish a trustworthy, verified engineering baseline — build, TypeScript, lint, tests, workspace state, and project knowledge — before any feature or product work resumes.
 - **Sprint philosophy:** Recovery before implementation. Inspect and verify first; fix only what is confirmed broken; document what is discovered rather than assume; never let a task's scope silently expand into unrelated cleanup, refactoring, or new planning. Every task in this sprint has run under an explicit, narrow scope with its own deliverables and acceptance criteria.
-- **Current status:** In progress. Three tasks complete (S0-000, S0-001, S0-002A); this document is produced by the fourth (S0-002B). The repository currently builds, typechecks, lints, and tests clean.
+- **Current status:** ✅ **Completed** (2026-07-25). All eight Sprint 0 tasks (S0-000 through S0-007) are complete. The repository builds, typechecks, lints, and tests clean as of the closing verification run in S0-007.
 
 ---
 
@@ -49,22 +51,45 @@ Sprint 0 was created because the project's health was unknown before any further
 - **Status:** ✅ Complete (this document)
 - **Outcome:** See remainder of this file.
 
+### S0-003 — UX 2.0 Engineering Specification Recovery
+- **Objective:** Reconstruct a factual engineering specification for the shipped "UX 2.0" work (nine milestones with no in-repo planning document), from direct implementation inspection only.
+- **Status:** ✅ Complete
+- **Outcome:** `docs/specifications/UX-2.0-Engineering-Specification.md` written and committed (`354c637`) — purpose, design goals, screen inventory (7 routes), component inventory (all 7 `features/*` modules), design system, 5 user flows, and verified Known UX Limitations, sourced entirely from reading the implemented code. Closes the documentation gap the Recovery Audit (S0-000) flagged as Critical (C-3).
+
+### S0-004A — Architecture Documentation Synchronization
+- **Objective:** Synchronize `ARCHITECTURE.md` with the repository at `HEAD` — folder structure, module boundaries, routing, authentication, testing counts.
+- **Status:** ✅ Complete
+- **Outcome:** `ARCHITECTURE.md` updated and committed (`dac6476`): removed the reference to a nonexistent file (`dashboard/dashboard-shell.tsx`), documented the full current route tree and all 7 `features/*` modules (including `landing` and `settings`, previously undocumented), corrected the test count (165→168, verified by re-running the suite rather than assumed), and added the previously-undocumented second authentication layer (`requireUser()` in the dashboard layout).
+
+### S0-005 — Runtime Verification
+- **Objective:** Live-verify runtime behavior (browser console, server console, routing, authentication, dashboard flows, public sandbox, theme, accessibility, responsiveness) — the gap S0-000's static-analysis-only scope had left open.
+- **Status:** ✅ Complete
+- **Outcome:** Full live session: dev server + production server startup, a real throwaway account taken through signup → email confirmation → login → project creation → real Gemini generation → persistence → Workbench → Settings → theme toggle → command palette → logout → session termination, plus the public sandbox's own real generation. Browser and server consoles stayed clean throughout — zero blocking issues found. Three minor, non-blocking observations were recorded for triage (see S0-006).
+
+### S0-006 — Runtime Findings Triage & Technical Debt Synchronization
+- **Objective:** Classify each S0-005 runtime finding and synchronize `TECH_DEBT.md` accordingly, without recording tooling limitations as product debt.
+- **Status:** ✅ Complete
+- **Outcome:** `TECH_DEBT.md` updated and committed (`4f35753`): added `TD-018` (top-bar title fallback on two routes) and `TD-019` (post-signup UX doesn't explain the email-confirmation requirement) as genuine, source-verified debt; closed two findings as browser-automation tooling artifacts with no repository action; updated `TD-006` in place — `getGeneration`/`getProjectGenerations` are now confirmed live-used by the Workbench route (partially resolving the item), while `deleteGeneration` remains confirmed unused.
+
+### S0-007 — Sprint 0 Closure
+- **Objective:** Run the final engineering verification, confirm all Sprint 0 exit criteria, and update this document to close the sprint.
+- **Status:** ✅ Complete (this update)
+- **Outcome:** `npm run typecheck`, `npm run lint`, `npm test` (168/168), and `npm run build` all re-run clean in one session; `git status` confirmed a clean working tree at the start of closure. See §5 and §7 below for the full closing verification and exit-criteria record.
+
 ---
 
 ## 4. Remaining Sprint Tasks
 
-The following work was identified during the Recovery Audit (S0-000) as necessary to close Sprint 0, but has **not yet been scheduled as a numbered task or started**. Listed here for tracking; none of it has been performed.
+None. All work identified during the Recovery Audit (S0-000) as necessary to close Sprint 0 has been completed across S0-003 through S0-007. Two items were identified but deliberately **not** actioned within Sprint 0, since every task in this sprint was explicitly scoped to documentation/verification only:
 
-- **Architecture/documentation synchronization.** Reconcile `ARCHITECTURE.md`'s folder-structure section and `docs/planning/v0.7.1-roadmap.md` against the repository's current state, and reconstruct a planning record for the shipped "UX 2.0" work (M1–M9) that currently exists only in commit messages and code comments referencing an "Engineering Spec" not present in the repository.
-- **Tech-debt ledger re-verification.** `TECH_DEBT.md` item TD-006 ("history/navigation repository functions implemented but never called") may already be partially resolved by the shipped Developer Workbench route — this needs re-checking against the current codebase and the ledger corrected if stale.
-- **Runtime verification pass.** The Recovery Audit's scope called for browser console, server console, React warnings, and hydration checks; these were not performed (audit was static-analysis only) and remain outstanding before Sprint 0 can claim full verification coverage.
-- **Minor dependency hygiene.** An unused dependency (`react-hook-form`) and one misplaced dependency (`shadcn`, a CLI tool currently listed under runtime `dependencies` instead of `devDependencies`) were identified in `package.json`; not yet actioned.
+- **`docs/planning/v0.7.1-roadmap.md` was not edited.** S0-004A reconciled `ARCHITECTURE.md` with the current repository and S0-003 recovered the missing UX 2.0 specification, but literally editing the roadmap document itself was out of scope for every Sprint 0 task ("no roadmap changes" appears in each task brief from S0-003 onward). The gap this created — the roadmap still describes pre-UX-2.0 file paths and doesn't mention UX 2.0 at all — is now explicitly disclosed in `ARCHITECTURE.md`'s Frontend Modularization section and in §6/§7 below, rather than left silently unaddressed. Reconciling the roadmap document itself is Sprint 1 (or a dedicated) work, not a Sprint 0 gap.
+- **Minor dependency hygiene** (unused `react-hook-form`; `shadcn` listed under runtime `dependencies` instead of `devDependencies`) was never assigned its own Sprint 0 task and was not part of the formal Sprint Exit Criteria (§7). Carried forward as low-priority, non-blocking cleanup — see §8.
 
 ---
 
 ## 5. Current Repository Health
 
-As of the most recent verification (S0-001, re-confirmed for S0-002A):
+As of the Sprint 0 closing verification (S0-007, re-run in the same session as this update — not carried forward from an earlier task):
 
 | Check | Status |
 |---|---|
@@ -72,36 +97,36 @@ As of the most recent verification (S0-001, re-confirmed for S0-002A):
 | TypeScript (`npm run typecheck`) | ✅ Passing, zero errors |
 | ESLint (`npm run lint`) | ✅ Passing, zero errors/warnings |
 | Tests (`npm test`) | ✅ Passing, 168/168 across 12 files |
-| Repository integrity | ✅ Git working tree clean relative to `HEAD`; no unintended tracked-file changes across S0-001 or S0-002A |
-| Documentation progress | `SCHEMACRAFT_AI_MASTER_CONTEXT.md` complete and committed; this document completes the second of two previously-empty placeholders. `ARCHITECTURE.md`/`docs/planning/v0.7.1-roadmap.md` reconciliation remains outstanding (§4) |
+| Repository integrity | ✅ Git working tree clean relative to `HEAD` at the start of S0-007; no unintended tracked-file changes across any Sprint 0 task |
+| Documentation progress | `SCHEMACRAFT_AI_MASTER_CONTEXT.md`, this document, `docs/specifications/UX-2.0-Engineering-Specification.md` all complete and committed. `ARCHITECTURE.md` reconciled with the current repository (S0-004A). `TECH_DEBT.md` synchronized against live-verified runtime behavior (S0-006). `docs/planning/v0.7.1-roadmap.md` itself remains unedited by design — see §4 |
 
 ---
 
 ## 6. Known Risks
 
-Carried forward from the Recovery Audit (S0-000); not re-assessed, expanded, or speculated on here:
+Originally carried forward from the Recovery Audit (S0-000); updated at Sprint 0 closure (S0-007) to reflect what subsequent tasks resolved. Not re-assessed or expanded beyond that update — these remain inputs for Sprint 1, not re-litigated here:
 
-- **Documentation/continuity gap around "UX 2.0."** Nine shipped milestones reference an "Engineering Spec" that does not exist anywhere in this repository — the rationale behind a substantial slice of the current product exists only in commit messages and code comments.
-- **Two self-rated Critical tech-debt items remain unresolved.** `TECH_DEBT.md` TD-003 (no FK-column indexing in generated SQL/Drizzle output) and TD-004 (join tables can get a surrogate PK with no uniqueness constraint) — both affect every schema this tool generates for end users today.
-- **No Git↔Vercel auto-deploy integration** (TD-005) — production deploys remain manual (`vercel --prod`).
-- **Placeholder/test data visible in the production Supabase account** (TD-015) — not yet cleaned up; requires explicit sign-off before deletion.
-- **Possible tech-debt ledger drift** — TD-006 may be stale (§4).
+- **Documentation/continuity gap around "UX 2.0" — mitigated, not eliminated.** The nine shipped milestones' rationale is now recovered in `docs/specifications/UX-2.0-Engineering-Specification.md` (S0-003), reconstructed from the implementation itself. The original "Engineering Spec" the code comments reference still does not exist anywhere in the repository, and `docs/planning/v0.7.1-roadmap.md` still doesn't mention UX 2.0 at all (§4) — the risk is now documented and bounded rather than silently open, but the underlying gap in the roadmap document itself persists by design (out of Sprint 0's scope).
+- **Two self-rated Critical tech-debt items remain unresolved.** `TECH_DEBT.md` TD-003 (no FK-column indexing in generated SQL/Drizzle output) and TD-004 (join tables can get a surrogate PK with no uniqueness constraint) — both affect every schema this tool generates for end users today. Unchanged by Sprint 0; carried to Sprint 1 as-is.
+- **No Git↔Vercel auto-deploy integration** (TD-005) — production deploys remain manual (`vercel --prod`). Unchanged by Sprint 0.
+- **Placeholder/test data visible in the production Supabase account** (TD-015) — not yet cleaned up; requires explicit sign-off before deletion. Unchanged by Sprint 0. (Sprint 0's own live-verification work in S0-005 added one more throwaway account/project to this same production account, clearly labeled "Sprint0 Runtime Verification Test" — flagged here for visibility, not treated as new debt, since it's the same accepted pattern TD-015 already tracks.)
+- ~~Possible tech-debt ledger drift — TD-006 may be stale~~ — **Resolved by S0-006.** Re-verified against the live-tested Workbench route and corrected in `TECH_DEBT.md`; no longer an open risk.
 
 ---
 
 ## 7. Sprint Exit Criteria
 
-Sprint 0 may be formally closed when all of the following hold:
+Evaluated at closure (S0-007):
 
-1. Build, TypeScript, lint, and test checks all pass cleanly, verified in the same session as closure (not assumed from an earlier task).
-2. The working tree and git state are clean, with no untracked or orphaned implementation artifacts.
-3. `SCHEMACRAFT_AI_MASTER_CONTEXT.md` and `Sprint-00-Recovery.md` are both complete and current.
-4. `ARCHITECTURE.md` and `docs/planning/v0.7.1-roadmap.md` have been reconciled with the repository's actual current state, including the "UX 2.0" work identified in §4.
-5. `TECH_DEBT.md` has been re-verified against current code (at minimum, TD-006) so the ledger can be trusted as a Sprint 1 planning input.
-6. A runtime verification pass (browser console, server console, React warnings, hydration) has been performed at least once, closing the gap the Recovery Audit's static-analysis scope left open.
-7. All Sprint 0 tasks listed in §3/§4 are complete, with no task left partially done or silently dropped.
+1. **Build, TypeScript, lint, and test checks all pass cleanly, verified in the same session as closure.** ✅ Met — all four re-run in this session (§5); not assumed from an earlier task.
+2. **The working tree and git state are clean, with no untracked or orphaned implementation artifacts.** ✅ Met — `git status` confirmed a clean tree before this closing update began.
+3. **`SCHEMACRAFT_AI_MASTER_CONTEXT.md` and `Sprint-00-Recovery.md` are both complete and current.** ✅ Met — both written, committed, and (this document) now current through S0-007.
+4. **`ARCHITECTURE.md` and `docs/planning/v0.7.1-roadmap.md` have been reconciled with the repository's actual current state, including the "UX 2.0" work.** ⚠️ **Partially met, by design.** `ARCHITECTURE.md` is fully reconciled (S0-004A) and the UX 2.0 work now has its own recovered specification (S0-003). `docs/planning/v0.7.1-roadmap.md` itself was never edited — every Sprint 0 task from S0-003 onward explicitly excluded roadmap changes from scope. This criterion, as originally written, is not 100% satisfied; the gap is disclosed rather than hidden (§4, §6) and is recommended as Sprint 1's first documentation item, not a Sprint 0 blocker.
+5. **`TECH_DEBT.md` has been re-verified against current code (at minimum, TD-006).** ✅ Met — S0-006, plus two new items (TD-018, TD-019) discovered along the way.
+6. **A runtime verification pass has been performed at least once.** ✅ Met — S0-005, full live session, zero blocking issues.
+7. **All Sprint 0 tasks listed in §3/§4 are complete, with no task left partially done or silently dropped.** ✅ Met — S0-000 through S0-007 all complete (§3); §4's two residual items are explicitly disclosed as deliberately out-of-scope, not silently dropped.
 
-Sprint 0 is not closed by this document — it remains open pending §4 and the criteria above.
+**Sprint 0 status: ✅ Completed 2026-07-25**, with one explicitly-disclosed partial criterion (#4, the roadmap document itself). This was a deliberate scope boundary held consistently across every task in this sprint, not an oversight — recorded here rather than either silently claiming full completion or blocking closure over work that was never in scope to do.
 
 ---
 
@@ -118,8 +143,11 @@ Work identified during Sprint 0 but explicitly out of Sprint 0's scope, deferred
 - **Git↔Vercel deployment integration** (TD-005) — an operational change requiring explicit sign-off, independent of any code milestone.
 - **Production placeholder-project data cleanup** (TD-015) — a one-way data change requiring explicit sign-off.
 - Lower-priority polish items already tracked in `TECH_DEBT.md` (VARCHAR sizing, sample-data realism, CSP headers, client-side prompt-length indicator) — none are Sprint 0 scope.
+- **Top-bar title fallback on the Workbench/Settings routes** (TD-018, added S0-006) and **unclear post-signup email-confirmation messaging** (TD-019, added S0-006) — both low-priority, non-blocking, discovered during Sprint 0's own runtime verification.
+- **`docs/planning/v0.7.1-roadmap.md` reconciliation** — recommended as the first Sprint 1 documentation item (§7, criterion 4).
+- **Minor dependency hygiene** — remove unused `react-hook-form`; move `shadcn` to `devDependencies`.
 
-This list reflects only backlog items already tracked in the repository's own documentation. No new items have been added.
+This list reflects only backlog items already tracked in the repository's own documentation, plus the two items discovered and added to `TECH_DEBT.md` during Sprint 0 itself (TD-018, TD-019). No speculative items have been added.
 
 ---
 
@@ -132,18 +160,23 @@ Recovery Audit (S0-000)
 Workspace Recovery (S0-001)
    ↓  verified and removed the orphaned file; confirmed build/type
       check/lint/test all pass on a clean working tree
-Documentation Recovery (S0-002A, S0-002B)
+Documentation Recovery (S0-002A, S0-002B, S0-003)
    ↓  populated SCHEMACRAFT_AI_MASTER_CONTEXT.md (permanent project
-      reference) and this document (Sprint 0 execution record)
+      reference), this document (Sprint 0 execution record), and
+      docs/specifications/UX-2.0-Engineering-Specification.md
+      (recovered UX 2.0 spec)
+Architecture Synchronization (S0-004A, S0-006)
+   ↓  reconciled ARCHITECTURE.md with the current repository;
+      re-verified and corrected TECH_DEBT.md (TD-006, plus new
+      TD-018/TD-019 found during runtime verification)
+Verification (S0-005)
+   ↓  full live runtime/browser verification pass — zero blocking
+      issues; final re-run of build, typecheck, lint, and test in
+      one session (S0-007)
+Sprint Closure (S0-007)
+   ✅ all exit criteria (§7) met or explicitly disclosed;
+      Sprint 0 formally closed 2026-07-25
       ── current position ──
-Architecture Synchronization (not yet started)
-   ↓  reconcile ARCHITECTURE.md / v0.7.1-roadmap.md with shipped
-      "UX 2.0" work; re-verify TECH_DEBT.md TD-006
-Verification (not yet started)
-   ↓  runtime/browser verification pass; final re-run of build,
-      typecheck, lint, and test in one session
-Sprint Closure (not yet started)
-      confirm all exit criteria (§7) met; Sprint 0 formally closed
 ```
 
 ---
@@ -152,4 +185,4 @@ Sprint Closure (not yet started)
 
 Per the repository's own tracked planning documents, the next candidate body of product work is **v0.7.1 Milestone 2 — Critical Bug Fixes** (`docs/planning/v0.7.1-roadmap.md`), covering the two still-open, self-rated Critical items: FK-column indexing (TD-003) and the join-table composite-uniqueness analyzer warning (TD-004). That roadmap document's status line marks Milestones 2 through 5 as "not yet started."
 
-This should be read with the caveat already recorded in §4 and §6: because the shipped "UX 2.0" work (nine milestones) has no corresponding entry anywhere in `docs/planning/`, it is not yet possible to confirm from repository documentation alone whether the v0.7.1 roadmap is still the authoritative next-milestone plan or has been superseded. Resolving that is itself part of Sprint 0's Architecture Synchronization work (§4, §7) — no planning for the next milestone has been performed as part of this task.
+This should be read with the caveat recorded in §4, §6, and §7 (exit criterion 4): `docs/planning/v0.7.1-roadmap.md` itself was never edited during Sprint 0 — by design, not oversight — so it still doesn't mention the shipped "UX 2.0" work at all. It remains unconfirmed from repository documentation alone whether this roadmap is still the authoritative next-milestone plan or has been superseded by UX 2.0. Resolving that is recommended as Sprint 1's first documentation item (§4); no planning for the next milestone has been performed as part of Sprint 0.
