@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+
 import {
   Select,
   SelectContent,
@@ -27,8 +29,11 @@ export function SchemaGenerator({ projects }: { projects: Project[] }) {
   if (projects.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Create a project above before generating a schema — every generation is saved to a
-        project.
+        Create a project on the{" "}
+        <Link href="/dashboard" className="underline underline-offset-2 hover:text-foreground">
+          Dashboard
+        </Link>{" "}
+        before generating a schema — every generation is saved to a project.
       </p>
     )
   }
