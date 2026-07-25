@@ -20,12 +20,12 @@ export function OutputViewerFrame({
   children: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <OutputActions content={content} variant={variant} />
       </div>
-      <ScrollArea className="h-[400px] rounded-md border bg-muted/30">{children}</ScrollArea>
+      <ScrollArea className="min-h-0 flex-1 rounded-md border bg-muted/30">{children}</ScrollArea>
     </div>
   )
 }
