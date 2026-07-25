@@ -1,4 +1,6 @@
 import type { CanonicalSchemaAST, TableNode } from "@/lib/ast/types"
+import { relationshipsBySourceTable } from "@/lib/compiler/shared/column-flags"
+import { resolveForeignKeyIndexes } from "@/lib/compiler/shared/foreign-key-indexes"
 import { resolvePrimaryKeyColumns } from "@/lib/compiler/shared/resolve-primary-key"
 import { toCamelCase } from "@/lib/compiler/drizzle/identifiers"
 import {
@@ -97,6 +99,17 @@ export function renderCreateTableDefinition(
     pgCoreImports.add(builderName)
     const columns = index.columns.map((c) => `table.${toCamelCase(c)}`).join(", ")
     tableBuilderEntries.push(`${builderName}(${JSON.stringify(index.name)}).on(${columns})`)
+  }
+
+  // Same dedup rule as the SQL compiler (lib/compiler/shared/foreign-key-indexes.ts):
+  // skip any FK column set already covered by the primary key, a
+  // column-level unique(), an explicit index above, or a unique
+  // constraint — Postgres already creates an implicit index for those.
+  const relationshipsForTable = relationshipsBySourceTable(ast).get(table.name.toLowerCase())
+  for (const fkIndex of resolveForeignKeyIndexes(table, relationshipsForTable)) {
+    pgCoreImports.add("index")
+    const columns = fkIndex.columns.map((c) => `table.${toCamelCase(c)}`).join(", ")
+    tableBuilderEntries.push(`index(${JSON.stringify(fkIndex.name)}).on(${columns})`)
   }
 
   const tableVarName = toCamelCase(table.name)
