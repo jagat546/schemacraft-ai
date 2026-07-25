@@ -56,13 +56,15 @@ Directly observed: one "Blog" generation produced `post_tags` with a UUID PK and
 
 Confirmed twice: every `VERCEL_GIT_*` var is empty. Pushes to `main` never deploy; deploys are manual `vercel --prod` only. Tracked as v0.7.1 Milestone 4 — requires explicit user sign-off before enabling, since it's a standing behavior change (every future `main` push would start auto-deploying).
 
-## TD-006 — `getGeneration`/`getProjectGenerations`/`deleteGeneration` implemented but never called
+## TD-006 — `getGeneration`/`getProjectGenerations` now used by the Workbench route; `deleteGeneration` still unused — PARTIALLY RESOLVED
 
-**Where:** `lib/repositories/generation.repository.ts`
+**Where:** `lib/repositories/generation.repository.ts`, consumed via `lib/actions/generation.actions.ts` and `components/dashboard/workbench-view.tsx`
 
-**Priority:** High
+**Priority:** Medium (downgraded from High — the "backend-complete, no UI" gap this item tracked is now half-closed)
 
-Backend-complete, no UI — a history/navigation feature was scaffolded but never finished. Tracked as v0.7.1 Milestone 3.
+**Verified via Sprint 0 runtime verification (S0-005):** `getGenerationAction`/`getProjectGenerationsAction` are called live by the Developer Workbench route (`/dashboard/projects/[id]/workbench`) — confirmed by running a real generation and watching it persist and correctly re-render there with its version number, date, and original prompt. This closes the original "implemented but never called" finding for `getGeneration`/`getProjectGenerations` specifically.
+
+**Still open:** `deleteGeneration` has zero call sites anywhere in the codebase (confirmed by a repository-wide search — only its own definition references it). No delete UI exists, and there is still no full history-*list* screen (browse every past generation for a project); the Workbench route only shows the latest generation or one specified by `?generation=<id>`, per `docs/specifications/UX-2.0-Engineering-Specification.md` §8 (Known UX Limitations). Tracked as v0.7.1 Milestone 3.
 
 ## TD-007 — Enums compile to `TEXT + CHECK`, not native Postgres `ENUM`
 
@@ -155,3 +157,19 @@ Found during the v0.7.1 production end-to-end validation pass: project cards ("T
 **Priority:** Low — process note, not a code fix
 
 Not a bug, but there's no documented internal process for verifying/rotating secrets other than functional testing after the fact — this is what made the v0.7.0 production debugging cycle take five rounds. Worth a short internal runbook note, no code change required.
+
+## TD-018 — Top-bar page title falls back to "SchemaCraft AI" on the Workbench and Project Settings routes
+
+**Where:** `features/shell/lib/nav-items.ts`, consumed by `features/shell/components/page-title.tsx`
+
+**Priority:** Low
+
+**Verified via Sprint 0 runtime verification (S0-005):** `NAV_ITEMS` only lists `/dashboard` and `/dashboard/generator`; `PageTitle` looks up the current route in that list and falls back to the app name when no entry matches. Confirmed live on `/dashboard/projects/[id]/workbench` and `/dashboard/projects/[id]/settings` — both show "SchemaCraft AI" in the top bar instead of "Workbench" / "Project Settings". Cosmetic only: each page's own `<h1>` heading is correct on both routes.
+
+## TD-019 — Post-signup UX gives no explanation of the email-confirmation requirement
+
+**Where:** `lib/actions/auth.ts` (`signUp`)
+
+**Priority:** Low
+
+**Verified via Sprint 0 runtime verification (S0-005):** `signUp()` calls `redirect("/dashboard")` unconditionally on success, without checking whether a session was actually established. When the Supabase project requires email confirmation (as this project's does), no session exists yet, so `proxy.ts` immediately redirects the still-unauthenticated request back to `/login` with no explanation shown. The user only learns a confirmation email is required if they then attempt to sign in and see "Please confirm your email before signing in." The block itself is correct and not a security gap — this is purely a missing success-state message on the signup flow.
