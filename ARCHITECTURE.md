@@ -30,34 +30,69 @@ source of truth in the same run.
 
 ```
 app/
-  (auth)/login, (auth)/signup      — auth routes
-  dashboard/                       — main application
-  page.tsx, layout.tsx, globals.css — root shell
+  (auth)/
+    login/page.tsx, signup/page.tsx — auth routes
+    layout.tsx                      — shared auth layout
+  (dashboard)/
+    dashboard/page.tsx              — project list (DashboardOverview)
+    dashboard/generator/page.tsx    — schema generator (GeneratorView)
+    dashboard/projects/[id]/workbench/page.tsx — generation review (WorkbenchView)
+    dashboard/projects/[id]/settings/page.tsx  — project settings shell (ProjectSettingsView)
+    layout.tsx                      — requireUser() gate + AppSidebar/TopNav/CommandPalette shell
+  page.tsx                          — public marketing landing page (not a redirect; adapts its
+                                        call to action to session state)
+  layout.tsx, globals.css           — root shell + design-token layer
 
 components/
   auth/                            — login/signup forms (not a feature module — public-route auth UI)
-  dashboard/dashboard-shell.tsx    — page-level composition of ProjectsPanel + SchemaGenerator
+  dashboard/                       — thin page-composition components, one per app/ route above,
+                                      each an async Server Component that fetches data via a
+                                      Server Action and delegates the real UI to a features/*
+                                      module: dashboard-overview.tsx, generator-view.tsx,
+                                      workbench-view.tsx, project-settings-view.tsx
   providers/                       — theme + toast providers
   ui/                              — shadcn/ui primitives
 
-features/                          — feature modules; see
-                                      docs/architecture/frontend-modularization.md for the full
-                                      module-ownership contract and day-by-day history
-  shell/components/                — AppSidebar, TopNav, ThemeToggle
-  ai-workspace/
+features/                          — feature modules, boundary-enforced by eslint.config.mjs's
+                                      import/no-restricted-paths zones (not just convention); see
+                                      docs/architecture/frontend-modularization.md for the
+                                      module-ownership contract and day-by-day history, and
+                                      docs/specifications/UX-2.0-Engineering-Specification.md for
+                                      the implemented user-facing behavior these modules back
+  shell/                            — no dependency on other feature modules
+    components/                   — AppSidebar, TopNav, PageTitle, ThemeToggle, CommandPalette,
+                                      CommandPaletteTrigger, KeyboardShortcutProvider
+    lib/nav-items.ts               — single source of truth for sidebar destinations, shared
+                                      with PageTitle and CommandPalette
+  ai-workspace/                    — may depend on: compiler, workbench
     components/                   — PromptEditor, SchemaGenerator
     hooks/use-generate-schema.ts  — generateSchema Server Action orchestration
-  compiler/components/            — GenerationStatus (idle / generating / error)
-  workbench/
-    components/                   — OutputTabs, CodeViewer, MarkdownViewer, MermaidViewer,
+  compiler/                        — may depend on: workbench
+    components/                   — GenerationStatus (idle / generating / error)
+  workbench/                       — leaf module, no dependency on other feature modules
+    components/                   — OutputTabs, SplitPaneCanvas, CodeViewer, MarkdownViewer,
+                                      MermaidViewer, MermaidCanvas (pan/zoom), OutputViewerFrame,
                                       OutputActions, OutputSkeleton
     lib/output-config.ts          — per-artifact label/filename/mimeType/language config
-  projects/
+  projects/                        — no dependency on other feature modules
     components/                   — ProjectsPanel, ProjectCard, CreateProjectDialog
     hooks/use-create-project.ts   — createProjectAction Server Action orchestration
+  landing/                         — may depend on: workbench (renders sandbox output through
+                                      the same OutputTabs the authenticated app uses)
+    components/                   — HeroSection, HeroSandbox, FeatureShowcase, MarketingNav,
+                                      MarketingFooter
+  settings/                        — no dependency on other feature modules
+    components/                   — DialectSelector, NamingConventionToggle — both genuinely
+                                      disabled at the DOM level (backend-gated: lib/compiler/sql
+                                      is Postgres-only/snake_case-only today, no dialect or
+                                      naming-convention abstraction exists yet)
 
 lib/
-  actions/                         — Server Action boundary ("use server")
+  actions/                         — Server Action boundary ("use server"): auth.ts,
+                                      project.actions.ts, generation.actions.ts,
+                                      generate-schema.ts (authenticated generation),
+                                      generate-schema-public.ts (rate-limited, unauthenticated
+                                      sandbox generation — never persists)
   services/generation.service.ts   — pipeline orchestrator
   ai/
     client.ts                      — shared GoogleGenAI instance
@@ -66,7 +101,9 @@ lib/
   compiler/                        — 5 compilers + shared helpers + registry
   repositories/                    — RLS-backed Supabase data access
   stores/                          — ui-store, generation-store, project-store (Zustand;
-                                      client-side state, never call Server Actions directly)
+                                      client-side state, never call Server Actions directly),
+                                      use-project-selection.ts (shared hook hydrating/reading
+                                      project-store, used by both ai-workspace and projects)
   supabase/                        — browser / server / middleware clients
   auth/                            — auth helpers
   db/                              — Drizzle schema definitions (local tooling only)
@@ -220,12 +257,20 @@ generations
 ## Authentication
 
 Supabase Auth via `@supabase/ssr`. Session-cookie handling is split across
-`lib/supabase/{client,server,middleware}.ts`; route protection runs through
-the Next.js 16 root proxy file (`proxy.ts`).
+`lib/supabase/{client,server,middleware}.ts`. Route protection is enforced
+twice, deliberately (defense in depth): the Next.js 16 root proxy file
+(`proxy.ts` → `lib/supabase/middleware.ts::updateSession`) redirects
+unauthenticated requests to any `/dashboard*` route to `/login`, and
+redirects authenticated requests away from `/login`/`/signup` to
+`/dashboard`; independently, `app/(dashboard)/layout.tsx` calls
+`requireUser()` as a second gate on every dashboard route. `app/page.tsx`
+(the public marketing page) and the unauthenticated sandbox action
+(`lib/actions/generate-schema-public.ts`) are the only parts of the app
+intentionally reachable without a session.
 
 ## Testing Architecture
 
-165 automated tests across 12 files, run with **Vitest** (counts verified
+168 automated tests across 12 files, run with **Vitest** (counts verified
 directly against a real test run, not carried forward from an earlier,
 since-inaccurate count — see below):
 
@@ -234,7 +279,7 @@ since-inaccurate count — see below):
 - `lib/ast/analyzer.test.ts` (24) — one test per error/warning code, plus regression cases
 - `lib/compiler/{sql,drizzle,json,markdown,mermaid}/*.test.ts` (91) — happy path, determinism, and a regression test per compiler
 - `lib/services/generation.service.test.ts` (11) — integration tests for `buildGeneratedArtifacts`, the seam between compiler output and the persistence contract
-- `lib/stores/{ui,generation,project}-store.test.ts` (16) — pure state-transition tests for the three client stores backing the feature modules (`ui-store` 3, `generation-store` 6, `project-store` 7)
+- `lib/stores/{ui,generation,project}-store.test.ts` (19) — pure state-transition tests for the three client stores backing the feature modules (`ui-store` 6, `generation-store` 6, `project-store` 7)
 
 Compiler tests use hand-written expected-output assertions, not snapshots
 — since every compiler's entire design promise is deterministic,
@@ -255,11 +300,22 @@ for the full milestone-by-milestone technical roadmap beyond Milestone 1.
 
 ## Frontend Modularization
 
-`components/dashboard` and `components/layout` have been reorganized into
-five feature modules (`features/shell`, `features/ai-workspace`,
+`components/dashboard` and `components/layout` were originally reorganized
+into five feature modules (`features/shell`, `features/ai-workspace`,
 `features/compiler`, `features/workbench`, `features/projects`) backed by
 three Zustand stores (`lib/stores/*`) — a structural refactor, with one
 in-scope bug fix per module where a tracked `TECH_DEBT.md` item overlapped
 the files being moved (TD-002, TD-016). No design or backend changes. See
 [`docs/architecture/frontend-modularization.md`](./docs/architecture/frontend-modularization.md)
-for the full module-ownership contract and day-by-day history.
+for the full module-ownership contract and day-by-day history of that
+refactor.
+
+The module set has since grown to seven with `features/landing` and
+`features/settings`, added during the subsequent "UX 2.0" initiative
+(design-token layer, command palette, dashboard routing changes, the
+Developer Workbench route, the marketing page, the Project Settings shell,
+and the public sandbox). See
+[`docs/specifications/UX-2.0-Engineering-Specification.md`](./docs/specifications/UX-2.0-Engineering-Specification.md)
+for the implemented user experience these two modules back, and
+[`Sprint-00-Recovery.md`](./Sprint-00-Recovery.md) for the documentation-
+recovery context around that initiative.
