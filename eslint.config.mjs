@@ -57,6 +57,13 @@ const eslintConfig = defineConfig([
               message:
                 "features/ai-workspace may only depend on features/compiler and features/workbench (see docs/architecture/frontend-modularization.md).",
             },
+            {
+              target: "./features/landing",
+              from: "./features",
+              except: ["./landing"],
+              message:
+                "features/landing has no dependencies on other feature modules (see docs/architecture/frontend-modularization.md).",
+            },
           ],
         },
       ],

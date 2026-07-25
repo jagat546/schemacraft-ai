@@ -45,7 +45,7 @@ export async function WorkbenchView({
                 ? "That generation couldn't be found."
                 : "This project doesn't have any generations yet."}
             </p>
-            <Button size="sm" render={<Link href="/dashboard/generator" />}>
+            <Button size="sm" nativeButton={false} render={<Link href="/dashboard/generator" />}>
               Open Generator
             </Button>
           </CardContent>
@@ -84,7 +84,7 @@ export async function WorkbenchView({
 
 function BackToDashboard() {
   return (
-    <Button variant="outline" size="sm" render={<Link href="/dashboard" />}>
+    <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/dashboard" />}>
       Back to Dashboard
     </Button>
   )
