@@ -16,6 +16,10 @@ type SandboxState =
   | { status: "success"; data: GeneratedSchema }
   | { status: "error"; message: string }
 
+// Matches the sandbox action's own zod cap
+// (lib/actions/generate-schema-public.ts) — TD-013.
+const SANDBOX_PROMPT_MAX_LENGTH = 500
+
 export function HeroSandbox() {
   const [prompt, setPrompt] = useState("")
   const [state, setState] = useState<SandboxState>({ status: "idle" })
@@ -41,14 +45,19 @@ export function HeroSandbox() {
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="e.g. 'a blog with posts and authors'"
           disabled={isGenerating}
-          maxLength={500}
+          maxLength={SANDBOX_PROMPT_MAX_LENGTH}
           className="min-h-20"
           aria-label="Describe the data you want"
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
-            Free, no account needed — limited to 5 tries per visitor per hour.
-          </p>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs text-muted-foreground">
+              Free, no account needed — limited to 5 tries per visitor per hour.
+            </p>
+            <span className="text-xs text-muted-foreground">
+              {prompt.length} / {SANDBOX_PROMPT_MAX_LENGTH}
+            </span>
+          </div>
           <Button onClick={handleGenerate} disabled={isGenerating || prompt.trim().length === 0}>
             {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
             Generate
