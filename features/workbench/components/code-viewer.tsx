@@ -43,16 +43,47 @@ const MINIMAP_AUTO_THRESHOLD = 40
 export function CodeViewer({
   content,
   variant,
+  minimapOverride,
+  onMinimapOverrideChange,
 }: {
   content: string
   variant: OutputVariant
+  // Workbench-Experience-Specification.md §Mini Map: the user's explicit
+  // on/off choice persists per project, shared across all three code tabs --
+  // that requires this to be lifted out of CodeViewer into whichever parent
+  // owns that persistence (Workbench). Omitting `onMinimapOverrideChange`
+  // entirely preserves this component's original auto-threshold behavior
+  // byte-for-byte, which is what every other caller (Generator, sandbox,
+  // landing's Interactive Demo) still gets.
+  //
+  // "Managed" mode is keyed off the *callback* being provided, not off
+  // `minimapOverride` itself being non-null: the very first render in
+  // Workbench has no persisted choice yet (null = "no explicit preference,
+  // use the auto-threshold"), and toggling it for the first time must still
+  // write through the callback rather than falling back to local state --
+  // otherwise that first toggle would never actually persist.
+  minimapOverride?: boolean | null
+  onMinimapOverrideChange?: (enabled: boolean) => void
 }) {
   const { resolvedTheme } = useTheme()
   const config = OUTPUT_CONFIG[variant]
   const trimmed = content.trim()
   const lineCount = trimmed === "" ? 1 : trimmed.split("\n").length
-  const showMinimapToggle = lineCount >= MINIMAP_AUTO_THRESHOLD
-  const [minimapEnabled, setMinimapEnabled] = useState(() => lineCount >= MINIMAP_AUTO_THRESHOLD)
+  const autoThresholdDefault = lineCount >= MINIMAP_AUTO_THRESHOLD
+  const isManaged = onMinimapOverrideChange !== undefined
+  const showMinimapToggle = isManaged || autoThresholdDefault
+  const [localMinimapEnabled, setLocalMinimapEnabled] = useState(autoThresholdDefault)
+  const minimapEnabled = isManaged
+    ? (minimapOverride ?? autoThresholdDefault)
+    : localMinimapEnabled
+
+  function handleToggleMinimap() {
+    if (isManaged) {
+      onMinimapOverrideChange(!minimapEnabled)
+    } else {
+      setLocalMinimapEnabled((enabled) => !enabled)
+    }
+  }
 
   return (
     <OutputViewerFrame
@@ -66,7 +97,7 @@ export function CodeViewer({
             variant="ghost"
             size="sm"
             aria-pressed={minimapEnabled}
-            onClick={() => setMinimapEnabled((enabled) => !enabled)}
+            onClick={handleToggleMinimap}
           >
             {minimapEnabled ? "Hide minimap" : "Show minimap"}
           </Button>

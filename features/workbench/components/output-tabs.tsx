@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CodeViewer } from "@/features/workbench/components/code-viewer"
 import { MarkdownViewer } from "@/features/workbench/components/markdown-viewer"
 import { MermaidViewer } from "@/features/workbench/components/mermaid-viewer"
-import { SplitPaneCanvas } from "@/features/workbench/components/split-pane-canvas"
+import { SplitPaneCanvas, type PanelCollapseState } from "@/features/workbench/components/split-pane-canvas"
+import { cn } from "@/lib/utils"
 import { useUiStore } from "@/lib/stores/ui-store"
 import type { GeneratedSchema } from "@/types/schema"
 import type { OutputVariant } from "@/types/ui"
@@ -12,6 +13,12 @@ import type { OutputVariant } from "@/types/ui"
 export function OutputTabs({
   result,
   tabState,
+  className,
+  minimapOverride,
+  onMinimapOverrideChange,
+  panelCollapse,
+  splitSizes,
+  onSplitSizesChange,
 }: {
   result: GeneratedSchema
   // Optional, instance-scoped alternative to the shared ui-store tab
@@ -22,6 +29,18 @@ export function OutputTabs({
   // two instances sharing one global "which tab is active" value would
   // otherwise silently sync their tab selection to each other.
   tabState?: { value: OutputVariant; onValueChange: (tab: OutputVariant) => void }
+  // Overrides the fixed 32rem height every other caller keeps -- only the
+  // Workbench (a full-viewport route, not a fixed-height panel embedded in
+  // a longer page) needs to fill its own bounded ancestor instead.
+  className?: string
+  // Workbench-only, per-project-persisted minimap choice (see CodeViewer):
+  // shared uniformly across the three code tabs, since the spec describes
+  // one on/off choice, not one per tab.
+  minimapOverride?: boolean | null
+  onMinimapOverrideChange?: (enabled: boolean) => void
+  panelCollapse?: PanelCollapseState
+  splitSizes?: { artifact: number; erd: number }
+  onSplitSizesChange?: (sizes: { artifact: number; erd: number }) => void
 }) {
   const globalActiveOutputTab = useUiStore((store) => store.activeOutputTab)
   const setGlobalActiveOutputTab = useUiStore((store) => store.setActiveOutputTab)
@@ -37,13 +56,28 @@ export function OutputTabs({
         {result.documentation && <TabsTrigger value="documentation">Documentation</TabsTrigger>}
       </TabsList>
       <TabsContent value="sql" className="min-h-0">
-        <CodeViewer content={result.sql} variant="sql" />
+        <CodeViewer
+          content={result.sql}
+          variant="sql"
+          minimapOverride={minimapOverride}
+          onMinimapOverrideChange={onMinimapOverrideChange}
+        />
       </TabsContent>
       <TabsContent value="drizzle" className="min-h-0">
-        <CodeViewer content={result.drizzle} variant="drizzle" />
+        <CodeViewer
+          content={result.drizzle}
+          variant="drizzle"
+          minimapOverride={minimapOverride}
+          onMinimapOverrideChange={onMinimapOverrideChange}
+        />
       </TabsContent>
       <TabsContent value="json" className="min-h-0">
-        <CodeViewer content={result.json} variant="json" />
+        <CodeViewer
+          content={result.json}
+          variant="json"
+          minimapOverride={minimapOverride}
+          onMinimapOverrideChange={onMinimapOverrideChange}
+        />
       </TabsContent>
       {result.documentation && (
         <TabsContent value="documentation" className="min-h-0">
@@ -54,11 +88,14 @@ export function OutputTabs({
   )
 
   return (
-    <div className="h-[32rem]">
+    <div className={cn("h-[32rem]", className)}>
       {result.mermaidDiagram ? (
         <SplitPaneCanvas
           left={codeTabs}
           right={<MermaidViewer content={result.mermaidDiagram} />}
+          collapse={panelCollapse}
+          splitSizes={splitSizes}
+          onSplitSizesChange={onSplitSizesChange}
         />
       ) : (
         codeTabs
