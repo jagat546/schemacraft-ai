@@ -35,7 +35,13 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 
   if (!user && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url))
+    const loginUrl = new URL("/login", request.url)
+    // The captured value here is always our own current request path, not
+    // user-controlled input -- the open-redirect risk is entirely on the
+    // *consuming* end (signIn reading this back out of the login form),
+    // which validates it via getSafeRedirectPath before ever redirecting.
+    loginUrl.searchParams.set("next", pathname + request.nextUrl.search)
+    return NextResponse.redirect(loginUrl)
   }
 
   if (user && isAuthRoute) {

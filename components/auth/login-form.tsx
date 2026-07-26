@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 
 import { signIn } from "@/lib/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +18,7 @@ export function LoginForm() {
     event.preventDefault()
     setError(null)
     startTransition(async () => {
-      const outcome = await signIn(email, password)
+      const outcome = await signIn(email, password, next)
       if (!outcome.ok) {
         setError(outcome.error)
         toast.error(outcome.error)
@@ -41,9 +42,17 @@ export function LoginForm() {
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-sm font-medium">
-          Password
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="password" className="text-sm font-medium">
+            Password
+          </label>
+          <Link
+            href="/reset-password"
+            className="text-sm text-primary underline-offset-4 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"

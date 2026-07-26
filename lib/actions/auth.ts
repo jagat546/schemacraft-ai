@@ -3,6 +3,7 @@
 import type { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 
+import { getSafeRedirectPath } from "@/lib/auth/safe-redirect"
 import { createClient } from "@/lib/supabase/server"
 
 export type AuthActionResult =
@@ -47,7 +48,11 @@ export async function signUp(email: string, password: string): Promise<AuthActio
   redirect("/dashboard")
 }
 
-export async function signIn(email: string, password: string): Promise<AuthActionResult> {
+export async function signIn(
+  email: string,
+  password: string,
+  next?: string | null
+): Promise<AuthActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
@@ -55,11 +60,37 @@ export async function signIn(email: string, password: string): Promise<AuthActio
     return { ok: false, error: mapAuthError(error) }
   }
 
-  redirect("/dashboard")
+  redirect(getSafeRedirectPath(next) ?? "/dashboard")
 }
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect("/login")
+}
+
+// Deliberately never differentiates "no account for this email" from any
+// other failure (rate limiting, transient send failure, ...): the response
+// is the same regardless, so this action can't be used to enumerate which
+// emails have accounts (Navigation-Experience-Specification.md
+// §Password Reset — Step 1 Request).
+export async function requestPasswordReset(email: string): Promise<void> {
+  const supabase = await createClient()
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/reset-password/confirm`,
+  })
+  // Result intentionally ignored -- see the comment above.
+}
+
+export async function confirmPasswordReset(password: string): Promise<AuthActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    return { ok: false, error: mapAuthError(error) }
+  }
+
+  redirect("/dashboard")
 }
