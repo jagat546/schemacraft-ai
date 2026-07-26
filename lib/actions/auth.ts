@@ -5,7 +5,9 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
 
-export type AuthActionResult = { ok: true } | { ok: false; error: string }
+export type AuthActionResult =
+  | { ok: true; requiresConfirmation?: boolean }
+  | { ok: false; error: string }
 
 function mapAuthError(error: AuthError): string {
   switch (error.code) {
@@ -27,10 +29,19 @@ function mapAuthError(error: AuthError): string {
 
 export async function signUp(email: string, password: string): Promise<AuthActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.auth.signUp({ email, password })
+  const { data, error } = await supabase.auth.signUp({ email, password })
 
   if (error) {
     return { ok: false, error: mapAuthError(error) }
+  }
+
+  // TD-019: when this Supabase project requires email confirmation,
+  // signUp() succeeds but establishes no session (data.session is null).
+  // Redirecting to /dashboard here would just bounce straight back to
+  // /login via proxy.ts with no explanation of why — tell the caller
+  // instead of redirecting, so the form can show what actually happened.
+  if (!data.session) {
+    return { ok: true, requiresConfirmation: true }
   }
 
   redirect("/dashboard")

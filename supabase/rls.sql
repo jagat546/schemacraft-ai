@@ -112,3 +112,52 @@ create policy "generations_delete_own"
         and projects.user_id = auth.uid()
     )
   );
+
+-- sandbox_generations -------------------------------------------------
+-- Backs the public, unauthenticated landing-page sandbox (M9). Unlike
+-- every other table in this file, there is deliberately NO direct grant
+-- and NO policy for any role here — not even a select-your-own-rows
+-- policy. The only sanctioned access path is the SECURITY DEFINER
+-- function below. This is what actually enforces the rate limit; a
+-- client-side "select count, then insert if under the limit" from
+-- application code would have a check-then-act race under concurrent
+-- requests from the same visitor, which is exactly what
+-- pg_advisory_xact_lock closes here (it serializes concurrent calls for
+-- the same ip_hash; different visitors are never blocked by each other).
+
+alter table public.sandbox_generations enable row level security;
+
+drop function if exists public.check_sandbox_rate_limit(text, integer, integer);
+create function public.check_sandbox_rate_limit(
+  p_ip_hash text,
+  p_max_requests integer,
+  p_window_minutes integer
+) returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_ip_hash));
+
+  delete from public.sandbox_generations
+  where created_at < now() - (p_window_minutes || ' minutes')::interval;
+
+  select count(*) into v_count
+  from public.sandbox_generations
+  where ip_hash = p_ip_hash
+    and created_at >= now() - (p_window_minutes || ' minutes')::interval;
+
+  if v_count >= p_max_requests then
+    return false;
+  end if;
+
+  insert into public.sandbox_generations (ip_hash) values (p_ip_hash);
+  return true;
+end;
+$$;
+
+revoke all on function public.check_sandbox_rate_limit(text, integer, integer) from public;
+grant execute on function public.check_sandbox_rate_limit(text, integer, integer) to anon, authenticated;

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.7.1 — Milestones 2b, 2c & 3: Generation Quality + History (2026-07-26)
+
+### Added
+- Foreign-key column indexing in generated SQL (`CREATE INDEX`) and Drizzle (`index()`) output, closing a standard Postgres performance gap present in every previously-generated schema
+- Semantic-analyzer warning for many-to-many join tables missing a composite uniqueness guarantee on their FK pair (informational only — never blocks generation)
+- Generation History UI (`/dashboard/projects/[id]/history`): browse every past generation for a project, open one into the existing Developer Workbench, delete one with confirmation — the first UI surface for the `getProjectGenerations`/`getGeneration`/`deleteGeneration` repository functions built during Sprint 4
+- Live character counters on both prompt inputs (authenticated Generator and the public sandbox)
+
+### Fixed
+- Top-bar page title no longer falls back to the generic app name on per-project routes (Workbench, Project Settings, History)
+- Signup no longer silently redirects to the login page with no explanation when email confirmation is required — the form now states this explicitly
+
+### Changed
+- Removed the unused `react-hook-form` dependency; relocated `shadcn` (a CLI-only scaffolding tool) from runtime `dependencies` to `devDependencies`
+
 ## v0.7.1 — Milestone 1: Test Infrastructure & CI (2026-07-23)
 
 ### Added

@@ -11,16 +11,24 @@ export function SignupForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    setConfirmationMessage(null)
     startTransition(async () => {
       const outcome = await signUp(email, password)
       if (!outcome.ok) {
         setError(outcome.error)
         toast.error(outcome.error)
+        return
+      }
+      if (outcome.requiresConfirmation) {
+        const message = "Account created — check your email to confirm it before signing in."
+        setConfirmationMessage(message)
+        toast.success(message)
       }
     })
   }
@@ -55,6 +63,7 @@ export function SignupForm() {
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {confirmationMessage && <p className="text-sm text-muted-foreground">{confirmationMessage}</p>}
       <Button type="submit" disabled={isPending} className="w-full">
         {isPending ? "Creating account…" : "Create account"}
       </Button>

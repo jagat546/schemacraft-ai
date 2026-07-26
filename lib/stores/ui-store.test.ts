@@ -25,6 +25,29 @@ describe("useUiStore", () => {
     expect(useUiStore.getState()).toEqual({
       activeOutputTab: "drizzle",
       setActiveOutputTab: expect.any(Function),
+      commandPaletteOpen: false,
+      setCommandPaletteOpen: expect.any(Function),
+      toggleCommandPalette: expect.any(Function),
     })
+  })
+
+  it("defaults the command palette to closed", () => {
+    expect(useUiStore.getState().commandPaletteOpen).toBe(false)
+  })
+
+  it("setCommandPaletteOpen sets the open state directly", () => {
+    useUiStore.getState().setCommandPaletteOpen(true)
+    expect(useUiStore.getState().commandPaletteOpen).toBe(true)
+
+    useUiStore.getState().setCommandPaletteOpen(false)
+    expect(useUiStore.getState().commandPaletteOpen).toBe(false)
+  })
+
+  it("toggleCommandPalette flips the open state", () => {
+    useUiStore.getState().toggleCommandPalette()
+    expect(useUiStore.getState().commandPaletteOpen).toBe(true)
+
+    useUiStore.getState().toggleCommandPalette()
+    expect(useUiStore.getState().commandPaletteOpen).toBe(false)
   })
 })

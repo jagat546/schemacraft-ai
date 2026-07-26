@@ -62,3 +62,19 @@ export const generations = pgTable(
     ),
   ]
 )
+
+// Backs the public, unauthenticated landing-page sandbox (M9) rate limit
+// only. No foreign key to any user or project — sandbox activity is never
+// linked to real account data, and nothing here is ever a real,
+// persisted generation. Written to exclusively via the SECURITY DEFINER
+// function in supabase/rls.sql; there is no direct table grant for any
+// role, authenticated or anon (see that file for why).
+export const sandboxGenerations = pgTable(
+  "sandbox_generations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ipHash: text("ip_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("sandbox_generations_ip_hash_idx").on(table.ipHash)]
+)

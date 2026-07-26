@@ -33,6 +33,7 @@ export const AnalysisWarningCode = {
   MissingPrimaryKey: "MISSING_PRIMARY_KEY",
   ReservedKeyword: "RESERVED_KEYWORD",
   CircularForeignKey: "CIRCULAR_FOREIGN_KEY",
+  JoinTableMissingUniqueConstraint: "JOIN_TABLE_MISSING_UNIQUE_CONSTRAINT",
 } as const
 export type AnalysisWarningCode = (typeof AnalysisWarningCode)[keyof typeof AnalysisWarningCode]
 
@@ -76,6 +77,7 @@ export function analyzeSchema(ast: CanonicalSchemaAST): AnalysisResult {
   const warnings: AnalysisWarning[] = []
 
   const tablesByName = indexTablesByName(ast.tables, errors)
+  const relationshipsBySourceTable = groupRelationshipsBySourceTable(ast)
 
   for (const table of ast.tables) {
     checkDuplicateColumns(table, errors)
@@ -86,6 +88,11 @@ export function analyzeSchema(ast: CanonicalSchemaAST): AnalysisResult {
     checkPrimaryKey(table, errors, warnings)
     checkIndexes(table, errors)
     checkUnsafeExpressions(table, errors)
+    checkJoinTableUniqueness(
+      table,
+      relationshipsBySourceTable.get(table.name.toLowerCase()) ?? [],
+      warnings
+    )
   }
 
   for (const relationship of ast.relationships) {
@@ -199,6 +206,108 @@ function checkPrimaryKey(
       table: table.name,
     })
   }
+}
+
+// Table-level primaryKey takes precedence when present; otherwise falls
+// back to whichever columns set primaryKey: true. Deliberately not
+// imported from lib/compiler/shared/resolve-primary-key.ts, which is the
+// same resolution rule — the analyzer runs upstream of the compiler stage
+// in the pipeline (shape validation -> semantic analysis -> compilation)
+// and should not depend on it.
+function resolvePrimaryKeyColumnNames(table: TableNode): string[] {
+  if (table.primaryKey) {
+    return table.primaryKey.columns
+  }
+  return table.columns.filter((column) => column.primaryKey).map((column) => column.name)
+}
+
+function groupRelationshipsBySourceTable(ast: CanonicalSchemaAST): Map<string, RelationshipNode[]> {
+  const map = new Map<string, RelationshipNode[]>()
+  for (const relationship of ast.relationships) {
+    const key = relationship.sourceTable.toLowerCase()
+    const list = map.get(key) ?? []
+    list.push(relationship)
+    map.set(key, list)
+  }
+  return map
+}
+
+function columnSetEquals(columns: string[], keys: Set<string>): boolean {
+  return columns.length === keys.size && columns.every((column) => keys.has(column.toLowerCase()))
+}
+
+// A small allow-list of incidental metadata columns that don't disqualify
+// a table from being a "pure" join table — a join table with a
+// created_at/updated_at audit column is still just a join table.
+function isIncidentalMetadataColumn(name: string): boolean {
+  return name.toLowerCase() === "created_at" || name.toLowerCase() === "updated_at"
+}
+
+// Warns (never errors — this preserves "AST stays valid, compiler still
+// runs") when a table looks like a many-to-many join table but has no
+// uniqueness guarantee on its FK pair, meaning duplicate relationship rows
+// (e.g. two identical (post_id, tag_id) rows) aren't prevented at the
+// database level. A real shape observed in production: post_tags with a
+// surrogate id primary key and no constraint on (post_id, tag_id).
+//
+// Detection is deliberately conservative to avoid false positives on
+// ordinary tables that happen to have two foreign keys (e.g. posts with
+// both author_id and editor_id pointing at users, which is not a join
+// table): a table only qualifies when it has EXACTLY two single-column
+// outgoing relationships and every other column is either its own primary
+// key or an incidental metadata column — i.e. the table exists to hold
+// the relationship and essentially nothing else. Self-referencing join
+// tables (both relationships targeting the same table, e.g. a
+// friendships table linking two users) are detected the same way, since
+// this check never looks at the target table at all.
+function checkJoinTableUniqueness(
+  table: TableNode,
+  relationshipsForTable: RelationshipNode[],
+  warnings: AnalysisWarning[]
+) {
+  const singleColumnRelationships = relationshipsForTable.filter(
+    (relationship) => relationship.sourceColumns.length === 1
+  )
+  if (singleColumnRelationships.length !== 2) {
+    return
+  }
+
+  const [firstColumn, secondColumn] = singleColumnRelationships.map(
+    (relationship) => relationship.sourceColumns[0]
+  )
+  if (firstColumn.toLowerCase() === secondColumn.toLowerCase()) {
+    return
+  }
+  const fkColumnKeys = new Set([firstColumn.toLowerCase(), secondColumn.toLowerCase()])
+
+  const primaryKeyColumns = resolvePrimaryKeyColumnNames(table)
+  const primaryKeyColumnKeys = new Set(primaryKeyColumns.map((column) => column.toLowerCase()))
+  const hasOnlyIncidentalExtraColumns = table.columns.every(
+    (column) =>
+      fkColumnKeys.has(column.name.toLowerCase()) ||
+      primaryKeyColumnKeys.has(column.name.toLowerCase()) ||
+      isIncidentalMetadataColumn(column.name)
+  )
+  if (!hasOnlyIncidentalExtraColumns) {
+    return
+  }
+
+  const alreadyGuaranteesUniqueness =
+    columnSetEquals(primaryKeyColumns, fkColumnKeys) ||
+    (table.constraints ?? []).some(
+      (constraint) => constraint.kind === "unique" && columnSetEquals(constraint.columns, fkColumnKeys)
+    ) ||
+    (table.indexes ?? []).some((index) => index.unique && columnSetEquals(index.columns, fkColumnKeys))
+
+  if (alreadyGuaranteesUniqueness) {
+    return
+  }
+
+  warnings.push({
+    code: AnalysisWarningCode.JoinTableMissingUniqueConstraint,
+    message: `Table "${table.name}" looks like a many-to-many join table linking "${firstColumn}" and "${secondColumn}", but has no composite uniqueness guarantee on that pair — duplicate relationship rows are not prevented at the database level.`,
+    table: table.name,
+  })
 }
 
 function checkIndexes(table: TableNode, errors: AnalysisError[]) {
