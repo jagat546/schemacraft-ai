@@ -40,7 +40,7 @@ export function AppSidebar() {
                     isActive={pathname === item.href}
                     tooltip={item.label}
                   >
-                    <Sparkles />
+                    <item.icon />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

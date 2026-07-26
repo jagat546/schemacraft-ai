@@ -62,6 +62,8 @@
   --color-accent-amber: var(--accent-amber);
   --color-accent-rose: var(--accent-rose);
   --color-accent-sky: var(--accent-sky);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
 
   /* Spacing — Design System 2.0 §4 (space-1..space-16). No new custom
      properties: Tailwind v4's default spacing scale (multiples of the
@@ -152,6 +154,8 @@
   --accent: var(--surface-1);
   --accent-foreground: var(--text-primary);
   --destructive: var(--accent-rose);
+  --success: var(--accent-emerald);
+  --warning: var(--accent-amber);
   --border: var(--border-subtle);
   --input: var(--border-strong);
   --ring: oklch(0.708 0 0);
@@ -215,6 +219,8 @@
   --accent: var(--surface-1);
   --accent-foreground: var(--text-primary);
   --destructive: var(--accent-rose);
+  --success: var(--accent-emerald);
+  --warning: var(--accent-amber);
   --border: var(--border-subtle);
   --input: var(--border-strong);
   --ring: oklch(0.556 0 0);
