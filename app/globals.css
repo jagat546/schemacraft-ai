@@ -250,3 +250,18 @@
     @apply font-sans;
   }
 }
+
+/* Account Settings §Accessibility (S4-010B) -- per-user overrides on top of
+   the §11 baseline, applied via a class on <html> set by the root layout
+   reading a cookie before first paint (lib/actions/account-preferences.actions.ts).
+   Placed after .dark so high-contrast wins regardless of theme. */
+:root.reduced-motion,
+:root.reduced-motion * {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+:root.high-contrast {
+  --border-subtle: var(--border-strong);
+}

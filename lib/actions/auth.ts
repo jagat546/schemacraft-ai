@@ -69,6 +69,15 @@ export async function signOut(): Promise<void> {
   redirect("/login")
 }
 
+// scope: "global" revokes every refresh token for this user, not just the
+// current session's -- the existing signOut() above only ever signs out
+// the browser session that called it.
+export async function signOutAllSessionsAction(): Promise<void> {
+  const supabase = await createClient()
+  await supabase.auth.signOut({ scope: "global" })
+  redirect("/login")
+}
+
 // Deliberately never differentiates "no account for this email" from any
 // other failure (rate limiting, transient send failure, ...): the response
 // is the same regardless, so this action can't be used to enumerate which
@@ -84,12 +93,24 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // Result intentionally ignored -- see the comment above.
 }
 
-export async function confirmPasswordReset(password: string): Promise<AuthActionResult> {
+export async function confirmPasswordReset(
+  password: string,
+  options?: { redirect?: boolean }
+): Promise<AuthActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.auth.updateUser({ password })
 
   if (error) {
     return { ok: false, error: mapAuthError(error) }
+  }
+
+  // Reused as-is by Account Settings' password-change form (S4-010B),
+  // where redirecting to /dashboard after a routine change would yank the
+  // user away from the page they were already on -- redirect: false keeps
+  // today's exact "just landed via the reset-confirm link" behavior as
+  // the default.
+  if (options?.redirect === false) {
+    return { ok: true }
   }
 
   redirect("/dashboard")

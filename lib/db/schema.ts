@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -62,6 +63,26 @@ export const generations = pgTable(
     ),
   ]
 )
+
+// S4-010B (Account Settings): one row per user, created lazily on first
+// preference save -- getUserPreferences() returns defaults when absent, so
+// no signup-time trigger is needed the way profiles has one. NOT YET
+// APPLIED to any database (no migration has been generated or run against
+// a live connection; this environment has none) -- schema-adjacent change
+// requiring the same explicit sign-off as S4-009's trigger before
+// `npm run db:generate && npm run db:migrate` is ever run for real.
+export const userPreferences = pgTable("user_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: "cascade" }),
+  defaultDialect: text("default_dialect").notNull().default("postgres"),
+  defaultNamingConvention: text("default_naming_convention").notNull().default("snake_case"),
+  defaultLandingScreen: text("default_landing_screen").notNull().default("dashboard"),
+  reducedMotion: boolean("reduced_motion").notNull().default(false),
+  highContrast: boolean("high_contrast").notNull().default(false),
+  developerMode: boolean("developer_mode").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+})
 
 // Backs the public, unauthenticated landing-page sandbox (M9) rate limit
 // only. No foreign key to any user or project — sandbox activity is never

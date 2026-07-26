@@ -161,3 +161,29 @@ $$;
 
 revoke all on function public.check_sandbox_rate_limit(text, integer, integer) from public;
 grant execute on function public.check_sandbox_rate_limit(text, integer, integer) to anon, authenticated;
+
+-- user_preferences (S4-010B) -------------------------------------------------
+-- NOT YET APPLIED -- see lib/db/schema.ts's userPreferences comment. Lazily
+-- created: no row exists until a user saves a preference for the first
+-- time, so only select/insert/update are needed (no signup trigger, no
+-- delete policy -- the row cascades away with the owning profile).
+
+grant select, insert, update on public.user_preferences to authenticated;
+
+alter table public.user_preferences enable row level security;
+
+drop policy if exists "user_preferences_select_own" on public.user_preferences;
+create policy "user_preferences_select_own"
+  on public.user_preferences for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "user_preferences_insert_own" on public.user_preferences;
+create policy "user_preferences_insert_own"
+  on public.user_preferences for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "user_preferences_update_own" on public.user_preferences;
+create policy "user_preferences_update_own"
+  on public.user_preferences for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
