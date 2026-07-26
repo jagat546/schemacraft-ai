@@ -5,6 +5,7 @@ import { useState } from "react"
 import { FadeInSection } from "@/features/landing/components/fade-in-section"
 import { INTERACTIVE_DEMO_SCHEMA } from "@/features/landing/lib/interactive-demo-fixture"
 import { OutputTabs } from "@/features/workbench/components/output-tabs"
+import { useInView } from "@/hooks/use-in-view"
 import type { OutputVariant } from "@/types/ui"
 
 // Landing-Experience-Specification.md §Interactive Demo: a static, curated,
@@ -17,6 +18,15 @@ import type { OutputVariant } from "@/types/ui"
 // silently tied to this one.
 export function InteractiveDemo() {
   const [activeTab, setActiveTab] = useState<OutputVariant>("sql")
+  // OutputTabs -> CodeViewer dynamic-imports Monaco (Sprint-04-Implementation-
+  // Roadmap.md §S4-014's own bundle-size risk callout). FadeInSection alone
+  // only toggles opacity/transform -- its children mount immediately on page
+  // load regardless of scroll position, which would otherwise make every
+  // landing-page visit kick off Monaco's chunk load (and its CDN fetch) even
+  // for visitors who never scroll this far. A second, independent
+  // useInView() gates the actual OutputTabs mount so that cost is paid only
+  // once this section is actually reached.
+  const [demoRef, demoInView] = useInView<HTMLDivElement>()
 
   return (
     <section className="border-t border-border-subtle bg-surface-1/50 py-20">
@@ -29,11 +39,16 @@ export function InteractiveDemo() {
             A curated example — nine related tables, generated from one prompt.
           </p>
         </div>
-        <div className="mt-8 rounded-lg border border-border-subtle bg-surface-2 shadow-sm">
-          <OutputTabs
-            result={INTERACTIVE_DEMO_SCHEMA}
-            tabState={{ value: activeTab, onValueChange: setActiveTab }}
-          />
+        <div
+          ref={demoRef}
+          className="mt-8 h-[32rem] rounded-lg border border-border-subtle bg-surface-2 shadow-sm"
+        >
+          {demoInView && (
+            <OutputTabs
+              result={INTERACTIVE_DEMO_SCHEMA}
+              tabState={{ value: activeTab, onValueChange: setActiveTab }}
+            />
+          )}
         </div>
       </FadeInSection>
     </section>

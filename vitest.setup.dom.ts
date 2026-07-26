@@ -43,11 +43,12 @@ if (typeof window !== "undefined" && !window.ResizeObserver) {
   }
 }
 
-// jsdom also has no Web Animations API -- Base UI's ScrollArea (inside
-// CodeViewer) calls element.getAnimations() from an internal timeout, which
+// jsdom also has no Web Animations API -- Base UI's ScrollArea (used by
+// OutputViewerFrame for every viewer except CodeViewer/Monaco, which opts
+// out of it) calls element.getAnimations() from an internal timeout, which
 // only actually fires in tests that advance fake timers far enough to
 // trigger it (confirmed: this surfaced specifically once a test advanced
-// timers past CodeViewer's own scroll-area timeout, not at initial mount).
+// timers past a scroll-area timeout, not at initial mount).
 if (typeof Element !== "undefined" && !Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
 }

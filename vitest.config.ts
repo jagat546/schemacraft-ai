@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url"
+
 import { defineConfig } from "vitest/config"
 
 // Two projects, not one flat config: the existing "node" suite (compilers,
@@ -64,6 +66,19 @@ export default defineConfig({
       {
         resolve: {
           tsconfigPaths: true,
+          // @monaco-editor/react's real implementation fetches Monaco's AMD
+          // bundle and language workers from a CDN at runtime -- there's no
+          // network access in this test environment, and jsdom has no
+          // Worker/canvas support for Monaco to run against even if there
+          // were. Aliased to a lightweight stub (vitest.mocks) that mirrors
+          // the real component's prop surface as inspectable data attributes,
+          // so CodeViewer's own logic (language/readOnly/minimap threshold)
+          // stays testable without a real editor instance.
+          alias: {
+            "@monaco-editor/react": fileURLToPath(
+              new URL("./vitest.mocks/monaco-editor-react.tsx", import.meta.url)
+            ),
+          },
         },
         test: {
           name: "dom",
