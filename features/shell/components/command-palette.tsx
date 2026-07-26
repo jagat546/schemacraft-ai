@@ -31,7 +31,7 @@ export function CommandPalette() {
   const router = useRouter()
   const { setTheme } = useTheme()
 
-  useKeyboardShortcut("mod+k", () => toggleOpen(), { allowInInput: true })
+  useKeyboardShortcut("mod+k", () => toggleOpen(), "Open command palette", { allowInInput: true })
 
   function runCommand(action: () => void) {
     setOpen(false)
