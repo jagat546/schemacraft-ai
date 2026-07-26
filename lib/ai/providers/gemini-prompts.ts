@@ -2,6 +2,7 @@ import "server-only"
 
 import type { Content } from "@google/genai"
 
+import type { PromptBuilder } from "@/lib/ai/providers/prompt-builder.interface"
 import { CURRENT_AST_VERSION } from "@/lib/ast/schema"
 
 // Gemini-specific prompt construction for AST generation. This replaces
@@ -13,8 +14,8 @@ import { CURRENT_AST_VERSION } from "@/lib/ast/schema"
 //
 // Lives under lib/ai/providers/ rather than lib/ai/ because prompt
 // construction is a provider implementation detail, not a shared
-// concern — a future non-Gemini provider would build its own prompt in
-// its own shape (e.g. a Chat Completions message array), not reuse this.
+// concern — a future non-Gemini provider builds its own PromptBuilder in
+// its own shape (e.g. an Anthropic/OpenAI messages array), not this one.
 
 function systemInstructionsSection(): string {
   return "You are a database design assistant for SchemaCraft AI. Given a short natural-language description of some data, design a schema for it and return it as a single JSON object matching the CanonicalSchemaAST structure defined by the response schema."
@@ -47,8 +48,23 @@ function buildSystemPrompt(): string {
   )
 }
 
-export const AST_SYSTEM_PROMPT = buildSystemPrompt()
+/** Gemini's own request shape: a system instruction plus a `Content[]` message array. */
+export interface GeminiPrompt {
+  systemInstruction: string
+  messages: Content[]
+}
 
-export function buildAstMessages(prompt: string): Content[] {
-  return [{ role: "user", parts: [{ text: prompt }] }]
+/**
+ * Full JSDoc per S5-001: builds the {@link GeminiPrompt} for a given
+ * {@link AIGenerationRequest}. `request.extensions` is not currently
+ * consumed — reserved for future per-request overrides, mirroring
+ * `lib/compiler`'s `CompilerOptions.extensions` escape hatch.
+ */
+export const geminiPromptBuilder: PromptBuilder<GeminiPrompt> = {
+  build(request) {
+    return {
+      systemInstruction: buildSystemPrompt(),
+      messages: [{ role: "user", parts: [{ text: request.prompt }] }],
+    }
+  },
 }
