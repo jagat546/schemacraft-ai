@@ -17,7 +17,20 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useCreateProject } from "@/features/projects/hooks/use-create-project"
 
-export function CreateProjectDialog() {
+export function CreateProjectDialog({
+  triggerLabel = "New Project",
+  triggerVariant = "default",
+  triggerSize = "sm",
+}: {
+  // Dashboard-Experience-Specification.md §Quick Actions: quick actions are
+  // secondary-weight, not primary -- primary is reserved for the empty-state
+  // "Create your first project" CTA, which also needs different copy and a
+  // larger size. Every default here reproduces today's exact prior
+  // behavior, so this stays additive for any other future caller.
+  triggerLabel?: string
+  triggerVariant?: "default" | "outline"
+  triggerSize?: "sm" | "lg"
+}) {
   const {
     open,
     setOpen,
@@ -32,9 +45,9 @@ export function CreateProjectDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
+      <DialogTrigger render={<Button size={triggerSize} variant={triggerVariant} />}>
         <Plus />
-        New Project
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

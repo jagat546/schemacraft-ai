@@ -126,6 +126,44 @@ export async function getProjectGenerations(
   return { ok: true, data: data.map(mapGeneration) }
 }
 
+// Extracted so the aggregation itself is unit-testable without a live
+// Supabase connection -- this repo has no existing convention for mocking
+// the Supabase client in a repository test (confirmed: no *.test.ts file
+// exists anywhere under lib/repositories/ today), so this mirrors the
+// project's existing pattern of testing pure logic separately from I/O
+// (buildGeneratedArtifacts in lib/services/generation.service.ts is the
+// precedent) rather than inventing a new Supabase-mocking harness for one
+// small query.
+export function countGenerationsByProject(rows: Array<{ project_id: string }>): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const row of rows) {
+    counts[row.project_id] = (counts[row.project_id] ?? 0) + 1
+  }
+  return counts
+}
+
+// Lightweight, additive query for the Dashboard's Metrics row (total
+// generations) and project Filters ("Has generations" / "Empty") --
+// grouped counts aren't expressible through PostgREST directly, so this
+// projects just the project_id column (RLS already scopes every row to the
+// current user's own projects, no user_id column on `generations` itself)
+// and aggregates in-process rather than adding a Postgres function for what
+// is, at this project's current scale, a cheap single-column read.
+export async function getGenerationCountsByProject(): Promise<RepositoryResult<Record<string, number>>> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("generations")
+    .select("project_id")
+    .returns<Array<Pick<GenerationRow, "project_id">>>()
+
+  if (error) {
+    return { ok: false, error: "Could not load generation counts. Please try again." }
+  }
+
+  return { ok: true, data: countGenerationsByProject(data) }
+}
+
 export async function deleteGeneration(generationId: string): Promise<RepositoryResult<null>> {
   const supabase = await createClient()
 
