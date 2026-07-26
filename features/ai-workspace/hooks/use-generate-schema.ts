@@ -18,6 +18,7 @@ export function useGenerateSchema() {
   const startGenerating = useGenerationStore((store) => store.startGenerating)
   const succeed = useGenerationStore((store) => store.succeed)
   const fail = useGenerationStore((store) => store.fail)
+  const expireSession = useGenerationStore((store) => store.expireSession)
   const [, startTransition] = useTransition()
 
   function generate(projectId: string | null) {
@@ -31,6 +32,12 @@ export function useGenerateSchema() {
         if (outcome.status === "GENERATED_NOT_SAVED") {
           toast.error(`Generated, but couldn't save it to the project: ${outcome.error}`)
         }
+      } else if (outcome.status === "SESSION_EXPIRED") {
+        // No toast: GenerationStatus renders this as its own ErrorState,
+        // not a transient notification -- the user needs a durable
+        // "sign in again" action, not something that disappears in a
+        // few seconds.
+        expireSession()
       } else {
         fail(outcome.error)
         toast.error(outcome.error)

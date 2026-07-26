@@ -2,7 +2,7 @@
 
 import { z } from "zod"
 
-import { requireUser } from "@/lib/auth/require-user"
+import { getSessionResult } from "@/lib/auth/session-result"
 import {
   generateAndPersistSchema,
   type GenerateAndPersistResult,
@@ -11,6 +11,7 @@ import {
 export type GenerateSchemaResult =
   | GenerateAndPersistResult
   | { status: "INVALID_INPUT"; error: string }
+  | { status: "SESSION_EXPIRED" }
 
 const inputSchema = z.object({
   prompt: z
@@ -21,11 +22,18 @@ const inputSchema = z.object({
   projectId: z.uuid(),
 })
 
+// Uses getSessionResult() (AD-004), not requireUser(): a redirect here
+// would navigate the user away from the Generator mid-action, discarding
+// whatever they'd typed. The client (useGenerateSchema) renders
+// SESSION_EXPIRED as its own state instead, preserving the prompt.
 export async function generateSchema(
   prompt: string,
   projectId: string
 ): Promise<GenerateSchemaResult> {
-  await requireUser()
+  const session = await getSessionResult()
+  if (session.status === "SESSION_EXPIRED") {
+    return { status: "SESSION_EXPIRED" }
+  }
 
   const parsed = inputSchema.safeParse({ prompt, projectId })
   if (!parsed.success) {

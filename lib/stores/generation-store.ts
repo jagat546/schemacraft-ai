@@ -14,6 +14,12 @@ export type GenerationState =
   | { status: "generating" }
   | { status: "success"; data: GeneratedSchema }
   | { status: "error"; message: string }
+  // AD-004 / S4-012: distinct from "error" because the UI treatment
+  // differs (a "sign in again" recovery action, not a retry) -- the
+  // Server Action (generate-schema.ts) uses getSessionResult(), never
+  // requireUser()'s redirect, specifically so this state is reachable
+  // instead of the user being navigated away mid-action.
+  | { status: "session-expired" }
 
 export type GenerationStore = {
   prompt: string
@@ -22,6 +28,7 @@ export type GenerationStore = {
   startGenerating: () => void
   succeed: (data: GeneratedSchema) => void
   fail: (message: string) => void
+  expireSession: () => void
   reset: () => void
 }
 
@@ -32,5 +39,9 @@ export const useGenerationStore = create<GenerationStore>()((set) => ({
   startGenerating: () => set({ state: { status: "generating" } }),
   succeed: (data) => set({ state: { status: "success", data } }),
   fail: (message) => set({ state: { status: "error", message } }),
+  // Never clears `prompt` -- same reasoning as fail(): losing what the
+  // user typed because their session happened to expire mid-action would
+  // be exactly the kind of negative surprise this rule exists to prevent.
+  expireSession: () => set({ state: { status: "session-expired" } }),
   reset: () => set({ prompt: "", state: { status: "idle" } }),
 }))
