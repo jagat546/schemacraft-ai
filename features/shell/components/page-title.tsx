@@ -2,14 +2,17 @@
 
 import { usePathname } from "next/navigation"
 
+import { Breadcrumbs } from "@/features/shell/components/breadcrumbs"
 import { NAV_ITEMS } from "@/features/shell/lib/nav-items"
 
 // Per-project routes (/dashboard/projects/[id]/<suffix>) aren't sidebar
 // destinations, so they don't belong in NAV_ITEMS — but without a title of
 // their own they fell back to the generic app name in the top bar (TD-018).
 // Matched by suffix rather than a full path, since the dynamic [id] segment
-// makes an exact NAV_ITEMS-style match impossible.
-const DYNAMIC_ROUTE_TITLES = [
+// makes an exact NAV_ITEMS-style match impossible. Exported so Breadcrumbs
+// (S4-005) resolves the same screen label from one source, not a second,
+// duplicated suffix map.
+export const DYNAMIC_ROUTE_TITLES = [
   { suffix: "/workbench", label: "Workbench" },
   { suffix: "/settings", label: "Project Settings" },
   { suffix: "/history", label: "History" },
@@ -32,6 +35,11 @@ function resolvePageTitle(pathname: string): string {
 // layout" (Code Review Iteration #2, High Priority 2).
 export function PageTitle() {
   const pathname = usePathname()
+
+  const isProjectScopedRoute = DYNAMIC_ROUTE_TITLES.some((entry) => pathname.endsWith(entry.suffix))
+  if (isProjectScopedRoute) {
+    return <Breadcrumbs />
+  }
 
   return <span className="text-sm font-medium">{resolvePageTitle(pathname)}</span>
 }
