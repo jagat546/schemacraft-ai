@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 
+import { ExportAllButton } from "@/features/ai-workspace/components/export-all-button"
 import { OutputTabs } from "@/features/workbench/components/output-tabs"
 import { cn } from "@/lib/utils"
 import type { GeneratedSchema } from "@/types/schema"
@@ -59,18 +60,21 @@ export function StagedOutputReveal({ result }: { result: GeneratedSchema }) {
       <span className="sr-only" role="status" aria-live="polite">
         {justRevealed ? `${justRevealed.label} ready` : null}
       </span>
-      <div className="flex flex-wrap items-center gap-3" aria-hidden="true">
-        {presentArtifacts.map((entry, index) => (
-          <span key={entry.key} className="flex items-center gap-1.5 text-caption text-text-muted">
-            <span
-              className={cn(
-                "size-1.5 rounded-full transition-colors duration-150",
-                index < revealedCount ? "bg-accent-emerald" : "bg-border-strong"
-              )}
-            />
-            {entry.label}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3" aria-hidden="true">
+          {presentArtifacts.map((entry, index) => (
+            <span key={entry.key} className="flex items-center gap-1.5 text-caption text-text-muted">
+              <span
+                className={cn(
+                  "size-1.5 rounded-full transition-colors duration-150",
+                  index < revealedCount ? "bg-accent-emerald" : "bg-border-strong"
+                )}
+              />
+              {entry.label}
+            </span>
+          ))}
+        </div>
+        <ExportAllButton result={result} />
       </div>
       <OutputTabs result={result} />
     </div>
