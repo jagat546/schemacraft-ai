@@ -11,6 +11,7 @@
  * is a factory, not a module-level singleton — importing this file has no
  * side effects; a registry only exists once something calls it.
  */
+import { createAnthropicProvider } from "@/lib/ai/providers/anthropic"
 import { createGeminiProvider } from "@/lib/ai/providers/gemini"
 import type { AIProviderAdapter } from "@/lib/ai/providers/interface"
 
@@ -52,14 +53,18 @@ export class AIProviderRegistry {
 }
 
 /**
- * Builds a fresh registry with every implemented provider registered —
- * today, just Gemini. S5-002/S5-003 register Anthropic/OpenAI here once
- * they exist; nothing else in the app needs to change to pick them up,
- * since `generation.service.ts` resolves its provider from this registry
- * rather than importing `geminiProvider` directly.
+ * Builds a fresh registry with every implemented provider registered.
+ * Gemini remains the default (`isDefault: true`) — registering Anthropic
+ * here makes it resolvable via `resolve("anthropic")` and DI-injectable
+ * for tests/future callers, but does not change which provider
+ * `generation.service.ts` actually uses by default. Which provider
+ * serves a real generation, once more than one is registered, is S5-004's
+ * own decision (`Sprint-05-Implementation-Roadmap.md`), not an incidental
+ * side effect of this provider existing.
  */
 export function createAIProviderRegistry(): AIProviderRegistry {
   const registry = new AIProviderRegistry()
   registry.register(createGeminiProvider(), { isDefault: true })
+  registry.register(createAnthropicProvider())
   return registry
 }

@@ -13,3 +13,16 @@ export const aiConfig = {
   maxTokens: 12288,
   requestTimeoutMs: 30_000,
 } as const
+
+// S5-002: Claude Sonnet 5 is Anthropic's current flagship model at the
+// time this provider was added (unlike Gemini's alias above, Anthropic
+// versions its model identifiers directly rather than offering a
+// perpetually-repointed "latest" alias) — a deliberate, named choice, not
+// a placeholder. maxTokens/requestTimeoutMs mirror aiConfig's own values;
+// nothing about generating a CanonicalSchemaAST is provider-specific
+// enough to need different limits yet.
+export const anthropicConfig = {
+  model: "claude-sonnet-5",
+  maxTokens: 12288,
+  requestTimeoutMs: 30_000,
+} as const

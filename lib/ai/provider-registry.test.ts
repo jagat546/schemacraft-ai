@@ -80,6 +80,12 @@ describe("createAIProviderRegistry", () => {
     expect(registry.resolve("gemini").name).toBe("gemini")
   })
 
+  it("registers Anthropic (S5-002) without making it the default", () => {
+    const registry = createAIProviderRegistry()
+    expect(registry.resolve("anthropic").name).toBe("anthropic")
+    expect(registry.resolve().name).toBe("gemini")
+  })
+
   it("returns a fresh registry on every call, not a shared singleton", () => {
     const first = createAIProviderRegistry()
     const second = createAIProviderRegistry()
