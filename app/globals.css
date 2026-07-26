@@ -251,10 +251,35 @@
   }
 }
 
-/* Account Settings §Accessibility (S4-010B) -- per-user overrides on top of
-   the §11 baseline, applied via a class on <html> set by the root layout
-   reading a cookie before first paint (lib/actions/account-preferences.actions.ts).
-   Placed after .dark so high-contrast wins regardless of theme. */
+/* Micro-Interactions.md §Reduced Motion: "prefers-reduced-motion disables
+   all non-essential transitions product-wide" -- this is the OS-level
+   baseline every component gets automatically, with no per-component
+   motion-reduce: variant required. Found missing entirely during the
+   S4-016 accessibility audit: only Tailwind's `motion-reduce:` variant
+   (used by features/landing/components/fade-in-section.tsx) responded to
+   the real media query before this; every other Sprint 4 transition
+   (StagedOutputReveal's indicator dots, SplitPaneCanvas's panel-collapse
+   chevrons, Dialog/CommandPalette open/close, the sidebar's own
+   collapse/expand) had no automatic OS-level reduced-motion behavior at
+   all -- only the manual Account Settings toggle below did, meaning a
+   user with the OS-level preference set but who never found that toggle
+   got full motion regardless. Mirrors the same override rule so both
+   mechanisms produce identical behavior. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Account Settings §Accessibility (S4-010B) -- lets a user force the same
+   behavior regardless of OS-level setting, applied via a class on <html>
+   set by the root layout reading a cookie before first paint
+   (lib/actions/account-preferences.actions.ts). Placed after .dark so
+   high-contrast wins regardless of theme. */
 :root.reduced-motion,
 :root.reduced-motion * {
   transition-duration: 0.01ms !important;

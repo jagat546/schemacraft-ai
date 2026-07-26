@@ -183,3 +183,31 @@ Not a bug, but there's no documented internal process for verifying/rotating sec
 **Verified via Sprint 0 runtime verification (S0-005):** `signUp()` called `redirect("/dashboard")` unconditionally on success, without checking whether a session was actually established. When the Supabase project requires email confirmation (as this project's does), no session existed yet, so `proxy.ts` immediately redirected the still-unauthenticated request back to `/login` with no explanation shown. The block itself was correct and not a security gap — this was purely a missing success-state message.
 
 **Fix (Sprint 1, S1-004):** `signUp()` now checks `data.session` and returns `{ ok: true, requiresConfirmation: true }` instead of redirecting when no session was established; `SignupForm` shows "Account created — check your email to confirm it before signing in." for that case.
+
+## TD-020 — Icon-only buttons' hit area matches their small visual size, not Design System 2.0's 44×44px minimum
+
+**Where:** `components/ui/button.tsx`'s `icon-xs`/`icon-sm`/`icon`/`icon-lg` size variants, and every consumer of them — `OutputActions` (copy/download), the new S4-015 controls (`WorkbenchFullscreenToggle`, `SplitPaneCanvas`'s panel-collapse chevrons, `WorkbenchGenerationNav`'s prev/next), `CodeViewer`'s minimap toggle header, and others across the app predating Sprint 4.
+
+**Priority:** Medium
+
+**Found during:** Sprint 4's S4-016 accessibility audit pass.
+
+**What the spec requires:** Design System 2.0 §11 / `Micro-Interactions.md` §Touch Targets: "minimum 44×44px effective hit area for every interactive control regardless of visual size... achieved through padding, not by enlarging the visible element." `icon-sm` (`size-7`, 28px) and `icon-xs` (`size-6`, 24px) are both well under this today, with no padding-based hit-slop mechanism at all — the clickable area exactly matches the rendered button box.
+
+**Why this wasn't fixed directly in S4-016:** the standard fix (an invisible `::after` pseudo-element with a negative inset, already used once in this codebase for the sidebar's own resize rail — `components/ui/sidebar.tsx`'s `after:-inset-2`) only works safely when there's enough surrounding space for the expanded hit area not to overlap a neighboring control. Several existing icon-button groups are tightly packed (e.g. `OutputActions`' copy/download buttons at `gap-1`, 4px apart; `SplitPaneCanvas`'s new collapse chevrons at `gap-0.5`) — applying a blanket hit-slop expansion to the shared `Button` variants without first auditing every cluster's spacing risks the opposite bug: overlapping hit regions causing the wrong control to receive a click near a shared edge. That audit (every icon-button cluster in the app, not just Sprint 4's) is a real, separate piece of work, not a one-line CSS change, and rushing it under this task's time budget risked introducing exactly the class of bug it's meant to prevent.
+
+**Recommended fix:** a dedicated pass auditing every icon-only button cluster's spacing, then either (a) widening gaps between clustered icon buttons enough to safely add uniform hit-slop padding, or (b) sizing the hit-slop per cluster based on available space. Should land as its own reviewable change, not folded into an unrelated feature task.
+
+## TD-021 — Workbench Fullscreen Mode hides app chrome instantly, not with the spec's `duration-slow` transition
+
+**Where:** `features/shell/components/dashboard-chrome.tsx` (S4-015)
+
+**Priority:** Low
+
+**Found during:** Sprint 4's S4-016 accessibility/micro-interaction audit pass.
+
+**What the spec asks for:** `Workbench-Experience-Specification.md` §Fullscreen Mode describes the sidebar/top bar hiding "with a `duration-slow` transition."
+
+**What's implemented instead:** `DashboardChrome` conditionally mounts (`{!isFullscreen && sidebar}`) rather than animating — the chrome disappears/reappears instantly. This was a deliberate, considered choice, not an oversight: `components/ui/sidebar.tsx`'s desktop `Sidebar` renders its actual visible panel as a `position: fixed` element, so wrapping it in an animated-width container (the natural first approach) has no effect on it — `fixed` positioning ignores an ancestor's width entirely. The alternative that would actually animate it — driving the existing `SidebarProvider`'s own `open`/`collapsible="offcanvas"` state, which already has a working `transition-[width]`/`transition-[left]` — risks clobbering that provider's own independent, cookie-persisted user preference (a user who manually collapsed their sidebar before entering fullscreen could have that preference silently overwritten on exit). Resolving this correctly needs a small, deliberate design decision about how fullscreen's transient state composes with the sidebar's persisted state, not a quick patch under this task's scope.
+
+**Recommended fix:** decide explicitly (product/design call) whether fullscreen should save-and-restore the sidebar's prior `open` state around entry/exit via `SidebarProvider`'s controlled props, or whether an instant appear/disappear is an acceptable, intentional exception to the general `duration-slow` rule for this specific full-chrome-removal case (arguably defensible: this is a full layout mode change, not a small surface transition like a dialog or dropdown).

@@ -1,5 +1,25 @@
-import { afterEach } from "vitest"
+import { afterEach, expect } from "vitest"
 import { cleanup } from "@testing-library/react"
+import { toHaveNoViolations } from "jest-axe"
+
+// jest-axe ships a Jest-style matcher; despite the name it's test-runner
+// agnostic (just wraps axe-core + jest-matcher-utils for diff formatting)
+// and works identically under Vitest's own `expect.extend`.
+// Sprint-04-Implementation-Roadmap.md §S4-016: this repo had no
+// accessibility-testing tooling before this suite existed (confirmed via
+// package.json) -- adding a minimal one was explicitly in that task's scope.
+expect.extend(toHaveNoViolations)
+
+// @types/jest-axe only augments Jest's own Matchers interface, not
+// Vitest's -- registering the matcher above makes it work at runtime
+// regardless, but `tsc --noEmit` needs this declared against Vitest's own
+// `Assertion` interface or every `.toHaveNoViolations()` call site fails
+// typecheck despite passing at runtime.
+declare module "vitest" {
+  interface Assertion {
+    toHaveNoViolations(): void
+  }
+}
 
 // Testing Library doesn't auto-detect Vitest's test lifecycle the way it
 // does Jest's, so without this, each render() call in a test file leaves

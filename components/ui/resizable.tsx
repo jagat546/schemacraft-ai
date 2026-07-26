@@ -32,7 +32,6 @@ function ResizableHandle({
   orientation = "horizontal",
   withHandle,
   className,
-  children,
   ...props
 }: React.ComponentProps<typeof Separator> & {
   orientation?: "horizontal" | "vertical"
@@ -62,13 +61,6 @@ function ResizableHandle({
           <GripVerticalIcon className={cn("size-2.5", isVertical && "rotate-90")} />
         </div>
       )}
-      {/* Optional overlay content (e.g. SplitPaneCanvas's panel-collapse
-          chevrons) anchored to the handle itself -- the one place in the
-          split that stays visible and clickable even when a neighboring
-          panel is collapsed to 0 width, unlike a control placed inside
-          either panel. Additive: existing callers pass no children, so
-          nothing renders here for them. */}
-      {children}
     </Separator>
   )
 }
