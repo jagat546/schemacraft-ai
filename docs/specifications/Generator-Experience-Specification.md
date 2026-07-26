@@ -72,11 +72,13 @@
 
 - Per-artifact download (existing `OutputActions` pattern) — one click, correct file extension and MIME type per `OUTPUT_CONFIG`, success toast. No changes; this already meets the bar.
 
-## Failure Recovery
+## Failure Recovery **(partially shipped — see implementation note)**
 
 - **Purpose:** a failed generation must never be a dead end.
 - **Interaction:** on failure, `GenerationStatus` shows an error state (per `Error-Experience.md`) with the specific failure reason where one is known (rate limit, prompt rejected for length, model error) and a **Retry** button that resubmits the exact same prompt without requiring the user to retype anything. The prompt text is never cleared on failure — losing a carefully-written prompt after a failed attempt is exactly the kind of negative surprise Core Experience Principle #5 forbids.
 - **Partial-streaming failure:** if streaming generation fails after some artifacts already completed, those completed artifacts remain visible and usable; only the failed remainder shows the error/retry state, scoped to what actually failed.
+
+**Implementation note (S4-017 closure audit):** the prompt-preservation half of this section shipped and is verified — `generation-store.ts`'s error state never clears `prompt`. The other two bullets above did not ship and predate Sprint 4 entirely (no S4-0XX roadmap task was ever scoped to build them): `GenerationStatus`'s error branch is a plain message with no **Retry** button anywhere in the Generator today, and "partial-streaming failure" describes a granularity that is architecturally impossible given the same fact that drove §Streaming Generation's own resolution above — one atomic AI call compiled into all five artifacts at once means there is no "SQL succeeded but JSON failed" state to recover from partially; a failure is a failure of the single request, all-or-nothing. Tracked as `TECH_DEBT.md` TD-022 rather than silently left unimplemented.
 
 ## Success States
 

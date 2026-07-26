@@ -211,3 +211,33 @@ Not a bug, but there's no documented internal process for verifying/rotating sec
 **What's implemented instead:** `DashboardChrome` conditionally mounts (`{!isFullscreen && sidebar}`) rather than animating — the chrome disappears/reappears instantly. This was a deliberate, considered choice, not an oversight: `components/ui/sidebar.tsx`'s desktop `Sidebar` renders its actual visible panel as a `position: fixed` element, so wrapping it in an animated-width container (the natural first approach) has no effect on it — `fixed` positioning ignores an ancestor's width entirely. The alternative that would actually animate it — driving the existing `SidebarProvider`'s own `open`/`collapsible="offcanvas"` state, which already has a working `transition-[width]`/`transition-[left]` — risks clobbering that provider's own independent, cookie-persisted user preference (a user who manually collapsed their sidebar before entering fullscreen could have that preference silently overwritten on exit). Resolving this correctly needs a small, deliberate design decision about how fullscreen's transient state composes with the sidebar's persisted state, not a quick patch under this task's scope.
 
 **Recommended fix:** decide explicitly (product/design call) whether fullscreen should save-and-restore the sidebar's prior `open` state around entry/exit via `SidebarProvider`'s controlled props, or whether an instant appear/disappear is an acceptable, intentional exception to the general `duration-slow` rule for this specific full-chrome-removal case (arguably defensible: this is a full layout mode change, not a small surface transition like a dialog or dropdown).
+
+## TD-022 — No Retry button or partial-artifact failure recovery in the Generator
+
+**Where:** `features/compiler/components/generation-status.tsx`, `lib/stores/generation-store.ts`, `docs/specifications/Generator-Experience-Specification.md` §Failure Recovery, `docs/specifications/User-Journey-Maps.md` Journey 5 ("Failed Generation").
+
+**Priority:** Medium
+
+**Found during:** Sprint 4's S4-017 closure task, walking `User-Journey-Maps.md`'s journeys against the real, merged product.
+
+**What the specs describe:** a **Retry** button on failure that resubmits the exact same prompt, plus "partial-streaming failure" behavior where already-completed artifacts stay visible/usable and only the failed remainder shows a scoped retry.
+
+**What's actually shipped:** `GenerationStatus`'s error branch is a plain destructive-colored message (`{state.message}`) with no Retry control at all — the user must manually re-trigger Generate. The prompt-preservation half of the spec did ship and is verified (`generation-store.ts`'s `fail()` action never touches `prompt`). The "partial-streaming failure" bullet describes a granularity that's architecturally impossible regardless of implementation effort: per §Streaming Generation's own S4-012 resolution, the pipeline makes one AI call and compiles all five artifacts synchronously from one AST — there is no "SQL succeeded, JSON failed" intermediate state to recover from partially, only "the one request succeeded or failed."
+
+**Why this wasn't fixed as part of Sprint 4:** no S4-0XX roadmap task was ever scoped to build a Retry mechanism — Sprint 4's Generator-related tasks (S4-011 templates/suggestions, S4-012 staged reveal, S4-013 export/undo) didn't include it, and this predates Sprint 4 entirely. S4-017 is a verification/doc-sync task ("Repository areas affected: None structurally" per its own roadmap entry) — surfacing this gap is exactly its job; building a new feature under its scope, this late in the sprint, is not.
+
+**Recommended fix:** add a real Retry action to `GenerationStatus`'s error branch that calls the same `useGenerateSchema` submission path with the store's already-preserved `prompt` — small, contained, and one of the few genuinely "add a button that reuses an existing code path" fixes among this file's open debt. Separately, correct or remove the "partial-streaming failure" spec bullet rather than ever attempting to build it, since the architecture makes it a permanent non-goal, not a backlog item.
+
+## TD-023 — Workbench keyboard shortcuts table's `Cmd/Ctrl+1..5` and `Cmd/Ctrl+Shift+C` bindings were never implemented
+
+**Where:** `docs/specifications/Workbench-Experience-Specification.md` §Keyboard Shortcuts, `components/dashboard/workbench-command-registration.tsx` (S4-015).
+
+**Priority:** Low
+
+**Found during:** Sprint 4's S4-017 closure task, walking `User-Journey-Maps.md` Journey 4 ("Power User") against the real product.
+
+**What's missing:** direct keystrokes for jumping to code tab N (`Cmd/Ctrl+1..5`) and copying the active tab's content (`Cmd/Ctrl+Shift+C`), both listed in the Workbench spec's own shortcuts table.
+
+**Why:** S4-015 built the Workbench's fullscreen mode, command-palette route-scoping, prev/next nav, and session persistence, deliberately scoped to that task's own roadmap acceptance criteria — which listed the four command-palette entries ("Jump to generation…," "Toggle ERD panel," "Toggle fullscreen," "Copy [tab] to clipboard") but not these two raw keybindings. The same underlying actions remain reachable today (mouse click on a tab; the command palette's "Copy [tab] to clipboard" entry) — this is a missing keyboard *shortcut*, not a missing feature.
+
+**Recommended fix:** register two more `useKeyboardShortcut` entries in `WorkbenchCommandRegistration` (or a sibling component) — `mod+1` through `mod+5` calling the same `setActiveTab` the tab clicks already use, and `mod+shift+c` calling the same handler the "Copy [tab] to clipboard" command already runs. Small, low-risk, and reuses existing wiring; scoped out of S4-015 for time, not because of any technical blocker.
