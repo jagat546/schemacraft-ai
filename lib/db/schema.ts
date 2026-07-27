@@ -99,3 +99,20 @@ export const sandboxGenerations = pgTable(
   },
   (table) => [index("sandbox_generations_ip_hash_idx").on(table.ipHash)]
 )
+
+// Authenticated-user generation rate limiting (S6-004) -- mirrors
+// sandboxGenerations above, keyed by user_id instead of ip_hash. Written
+// to exclusively via the SECURITY DEFINER function in supabase/rls.sql;
+// no direct table grant for any role. NOT YET APPLIED to any database --
+// same "prepare but don't apply" discipline as userPreferences above.
+export const generationRateLimitEvents = pgTable(
+  "generation_rate_limit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("generation_rate_limit_events_user_created_idx").on(table.userId, table.createdAt)]
+)

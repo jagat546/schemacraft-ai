@@ -3,6 +3,7 @@
 import { z } from "zod"
 
 import { getSessionResult } from "@/lib/auth/session-result"
+import { checkAuthenticatedGenerationRateLimit } from "@/lib/repositories/rate-limit.repository"
 import {
   generateAndPersistSchema,
   type GenerateAndPersistResult,
@@ -12,6 +13,8 @@ export type GenerateSchemaResult =
   | GenerateAndPersistResult
   | { status: "INVALID_INPUT"; error: string }
   | { status: "SESSION_EXPIRED" }
+  | { status: "RATE_LIMITED"; error: string }
+  | { status: "RATE_LIMIT_UNAVAILABLE"; error: string }
 
 const inputSchema = z.object({
   prompt: z
@@ -38,6 +41,22 @@ export async function generateSchema(
   const parsed = inputSchema.safeParse({ prompt, projectId })
   if (!parsed.success) {
     return { status: "INVALID_INPUT", error: parsed.error.issues[0]?.message ?? "Invalid input." }
+  }
+
+  // S6-004: checked before the (expensive) AI call, same reasoning as the
+  // project-ownership check below it in generateAndPersistSchema.
+  const rateLimitOutcome = await checkAuthenticatedGenerationRateLimit(session.user.id)
+  if (rateLimitOutcome === "RATE_LIMITED") {
+    return {
+      status: "RATE_LIMITED",
+      error: "You've reached the generation limit for now. Please try again later.",
+    }
+  }
+  if (rateLimitOutcome === "UNAVAILABLE") {
+    return {
+      status: "RATE_LIMIT_UNAVAILABLE",
+      error: "Couldn't verify your generation limit right now. Please try again shortly.",
+    }
   }
 
   return generateAndPersistSchema(parsed.data)

@@ -162,6 +162,81 @@ $$;
 revoke all on function public.check_sandbox_rate_limit(text, integer, integer) from public;
 grant execute on function public.check_sandbox_rate_limit(text, integer, integer) to anon, authenticated;
 
+-- generation_rate_limit_events (S6-004) -------------------------------------
+-- Authenticated-user generation rate limiting: 60/hour, burst 10/minute
+-- (thresholds are passed in by the caller, not hardcoded here, so the
+-- application layer owns the actual numbers). Mirrors sandbox_generations'
+-- reserve-then-execute pattern above -- same pg_advisory_xact_lock
+-- check-then-act race closure, keyed by user_id instead of ip_hash -- but
+-- enforces two windows (an hourly ceiling and a short burst ceiling) in
+-- one call instead of one. Deliberately NOT YET APPLIED to any live
+-- database (see this project's established "prepare but don't apply"
+-- discipline for schema-adjacent changes, e.g. AD-005, S4-010B's
+-- user_preferences) -- requires npm run db:generate && npm run db:migrate
+-- plus this file, run with explicit human sign-off.
+
+create table if not exists public.generation_rate_limit_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_generation_rate_limit_events_user_created
+  on public.generation_rate_limit_events (user_id, created_at);
+
+-- Same access model as sandbox_generations: RLS enabled, but no grant and
+-- no policy for any role -- the SECURITY DEFINER function below is the
+-- only sanctioned access path, so there is no client-reachable table
+-- access to bypass the lock/count logic with.
+alter table public.generation_rate_limit_events enable row level security;
+
+drop function if exists public.check_authenticated_rate_limit(uuid, integer, integer, integer, integer);
+create function public.check_authenticated_rate_limit(
+  p_user_id uuid,
+  p_hourly_max integer,
+  p_hourly_window_minutes integer,
+  p_burst_max integer,
+  p_burst_window_minutes integer
+) returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_hourly_count integer;
+  v_burst_count integer;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text));
+
+  delete from public.generation_rate_limit_events
+  where created_at < now() - (greatest(p_hourly_window_minutes, p_burst_window_minutes) || ' minutes')::interval;
+
+  select count(*) into v_hourly_count
+  from public.generation_rate_limit_events
+  where user_id = p_user_id
+    and created_at >= now() - (p_hourly_window_minutes || ' minutes')::interval;
+
+  if v_hourly_count >= p_hourly_max then
+    return false;
+  end if;
+
+  select count(*) into v_burst_count
+  from public.generation_rate_limit_events
+  where user_id = p_user_id
+    and created_at >= now() - (p_burst_window_minutes || ' minutes')::interval;
+
+  if v_burst_count >= p_burst_max then
+    return false;
+  end if;
+
+  insert into public.generation_rate_limit_events (user_id) values (p_user_id);
+  return true;
+end;
+$$;
+
+revoke all on function public.check_authenticated_rate_limit(uuid, integer, integer, integer, integer) from public;
+grant execute on function public.check_authenticated_rate_limit(uuid, integer, integer, integer, integer) to authenticated;
+
 -- user_preferences (S4-010B) -------------------------------------------------
 -- NOT YET APPLIED -- see lib/db/schema.ts's userPreferences comment. Lazily
 -- created: no row exists until a user saves a preference for the first
