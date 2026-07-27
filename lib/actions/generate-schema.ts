@@ -4,7 +4,10 @@ import { z } from "zod"
 
 import { getSessionResult } from "@/lib/auth/session-result"
 import { dismissOnboarding } from "@/lib/onboarding/dismissed-cookie"
-import { checkAuthenticatedGenerationRateLimit } from "@/lib/repositories/rate-limit.repository"
+import {
+  checkAuthenticatedGenerationRateLimit,
+  formatRateLimitRetryMessage,
+} from "@/lib/repositories/rate-limit.repository"
 import {
   generateAndPersistSchema,
   type GenerateAndPersistResult,
@@ -47,13 +50,16 @@ export async function generateSchema(
   // S6-004: checked before the (expensive) AI call, same reasoning as the
   // project-ownership check below it in generateAndPersistSchema.
   const rateLimitOutcome = await checkAuthenticatedGenerationRateLimit(session.user.id)
-  if (rateLimitOutcome === "RATE_LIMITED") {
+  if (rateLimitOutcome.status === "RATE_LIMITED") {
+    // S7-003: tells the user approximately when to retry instead of a
+    // bare "try again later" -- a real point of confusion for someone
+    // actively exploring the product for the first time.
     return {
       status: "RATE_LIMITED",
-      error: "You've reached the generation limit for now. Please try again later.",
+      error: formatRateLimitRetryMessage(rateLimitOutcome.retryAfterSeconds),
     }
   }
-  if (rateLimitOutcome === "UNAVAILABLE") {
+  if (rateLimitOutcome.status === "UNAVAILABLE") {
     return {
       status: "RATE_LIMIT_UNAVAILABLE",
       error: "Couldn't verify your generation limit right now. Please try again shortly.",

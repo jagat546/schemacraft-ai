@@ -190,6 +190,13 @@ create index if not exists idx_generation_rate_limit_events_user_created
 -- access to bypass the lock/count logic with.
 alter table public.generation_rate_limit_events enable row level security;
 
+-- S7-003: returns jsonb, not a plain boolean, so a rejected caller can be
+-- told approximately when to retry -- a plain true/false gave the
+-- application layer no way to compute that itself (it never sees the
+-- underlying event timestamps, by design: the reservation table has no
+-- direct grant for any role). retry_after_seconds is the time until the
+-- oldest event inside whichever window was actually exceeded ages out of
+-- it; null when the request is allowed.
 drop function if exists public.check_authenticated_rate_limit(uuid, integer, integer, integer, integer);
 create function public.check_authenticated_rate_limit(
   p_user_id uuid,
@@ -197,7 +204,7 @@ create function public.check_authenticated_rate_limit(
   p_hourly_window_minutes integer,
   p_burst_max integer,
   p_burst_window_minutes integer
-) returns boolean
+) returns jsonb
 language plpgsql
 security definer
 set search_path = public
@@ -205,6 +212,8 @@ as $$
 declare
   v_hourly_count integer;
   v_burst_count integer;
+  v_oldest_in_window timestamptz;
+  v_retry_after_seconds integer;
 begin
   perform pg_advisory_xact_lock(hashtext(p_user_id::text));
 
@@ -217,7 +226,16 @@ begin
     and created_at >= now() - (p_hourly_window_minutes || ' minutes')::interval;
 
   if v_hourly_count >= p_hourly_max then
-    return false;
+    select min(created_at) into v_oldest_in_window
+    from public.generation_rate_limit_events
+    where user_id = p_user_id
+      and created_at >= now() - (p_hourly_window_minutes || ' minutes')::interval;
+
+    v_retry_after_seconds := greatest(0, ceil(extract(
+      epoch from (v_oldest_in_window + (p_hourly_window_minutes || ' minutes')::interval - now())
+    )))::integer;
+
+    return jsonb_build_object('allowed', false, 'retry_after_seconds', v_retry_after_seconds);
   end if;
 
   select count(*) into v_burst_count
@@ -226,11 +244,20 @@ begin
     and created_at >= now() - (p_burst_window_minutes || ' minutes')::interval;
 
   if v_burst_count >= p_burst_max then
-    return false;
+    select min(created_at) into v_oldest_in_window
+    from public.generation_rate_limit_events
+    where user_id = p_user_id
+      and created_at >= now() - (p_burst_window_minutes || ' minutes')::interval;
+
+    v_retry_after_seconds := greatest(0, ceil(extract(
+      epoch from (v_oldest_in_window + (p_burst_window_minutes || ' minutes')::interval - now())
+    )))::integer;
+
+    return jsonb_build_object('allowed', false, 'retry_after_seconds', v_retry_after_seconds);
   end if;
 
   insert into public.generation_rate_limit_events (user_id) values (p_user_id);
-  return true;
+  return jsonb_build_object('allowed', true, 'retry_after_seconds', null);
 end;
 $$;
 
