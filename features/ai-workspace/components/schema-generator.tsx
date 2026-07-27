@@ -78,7 +78,7 @@ export function SchemaGenerator({ projects }: { projects: Project[] }) {
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
       />
-      <GenerationStatus />
+      <GenerationStatus onRetry={handleGenerate} />
       {state.status === "success" && (
         <StagedOutputReveal key={state.data.sql} result={state.data} />
       )}

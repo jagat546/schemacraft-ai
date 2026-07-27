@@ -7,13 +7,13 @@
 // (lib/services/generation.service.ts) returns one final result, not
 // intermediate stage events. See docs/architecture/frontend-modularization.md,
 // Day 4 entry.
-import { LogInIcon } from "lucide-react"
+import { AlertCircleIcon, LogInIcon } from "lucide-react"
 
 import { ErrorState } from "@/components/patterns/error-state"
 import { OutputSkeleton } from "@/features/workbench/components/output-skeleton"
 import { useGenerationStore } from "@/lib/stores/generation-store"
 
-export function GenerationStatus() {
+export function GenerationStatus({ onRetry }: { onRetry: () => void }) {
   const state = useGenerationStore((store) => store.state)
 
   if (state.status === "generating") {
@@ -50,7 +50,13 @@ export function GenerationStatus() {
   }
 
   if (state.status === "error") {
-    return <p className="text-sm text-destructive">{state.message}</p>
+    return (
+      <ErrorState
+        icon={<AlertCircleIcon />}
+        message={state.message}
+        action={{ kind: "retry", label: "Retry", onClick: onRetry }}
+      />
+    )
   }
 
   return null

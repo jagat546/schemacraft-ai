@@ -73,10 +73,10 @@
 | **Goals** | Understand *why* it failed and get back to a working state without re-doing work. |
 | **Pain points** | Losing a carefully-written prompt on failure; a generic "Something went wrong" with no path forward. |
 | **Emotional state** | Frustrated, and — because this is an AI product — primed to distrust the whole tool if the failure feels opaque or arbitrary. This is the highest-stakes emotional moment in the product for trust preservation. |
-| **System response** | `Generator-Experience-Specification.md` §Failure Recovery: prompt text is never cleared — verified, `generation-store.ts`'s `fail()` action only ever touches `state`. The rest of this journey's original step-by-step described a Retry button and partial-artifact recovery that were never built (tracked as `TECH_DEBT.md` TD-022, surfaced during the S4-017 closure audit) — corrected below to what the product actually does today. |
-| **Expected outcome** | The user's prompt is still there and the reason is legible; today, recovery means editing/resubmitting manually rather than a one-click Retry — a failed generation costs the user retyping the submit action, but never their original prompt text. |
+| **System response** | `Generator-Experience-Specification.md` §Failure Recovery: prompt text is never cleared — verified, `generation-store.ts`'s `fail()` action only ever touches `state`. A dedicated Retry action now resubmits that preserved prompt directly (S6-001, closes `TECH_DEBT.md` TD-022). The journey's original step-by-step also described partial-artifact recovery, which was never built and never will be — corrected below to what the product actually does. |
+| **Expected outcome** | The user's prompt is still there, the reason is legible, and a single Retry click resubmits it without retyping or re-navigating. |
 
-**Step-by-step (as shipped):** submit a prompt → generation fails (the single AI call + compile step is all-or-nothing — there is no partial SQL/Drizzle-succeeded-but-JSON-failed state, per §Streaming Generation's own architecture note) → `GenerationStatus` shows the failure reason as a plain message, prompt text still intact in the editor → user manually clicks Generate again (no dedicated Retry control exists yet) → succeeds.
+**Step-by-step (as shipped):** submit a prompt → generation fails (the single AI call + compile step is all-or-nothing — there is no partial SQL/Drizzle-succeeded-but-JSON-failed state, per §Streaming Generation's own architecture note) → `GenerationStatus` shows the failure reason with a **Retry** action, prompt text still intact in the editor → user clicks Retry (or edits the prompt first, then Generate) → succeeds.
 
 ---
 
