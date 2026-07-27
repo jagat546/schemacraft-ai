@@ -10,7 +10,7 @@ import type { ColumnNode } from "@/lib/ast/types"
 export function mapColumnType(column: ColumnNode): string {
   switch (column.type) {
     case "string":
-      return "VARCHAR(255)"
+      return `VARCHAR(${column.maxLength ?? 255})`
     case "text":
       return "TEXT"
     case "integer":

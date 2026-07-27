@@ -86,21 +86,21 @@ Deliberate v1 scope cut, documented at the time. Means no DB-level enum type reu
 
 Documented scope cut — a physical constraint needs topological table ordering to do safely. Currently silent: the generated Drizzle model gets a `relations()` entry only, with no warning surfaced to the user that this happened.
 
-## TD-009 — Blanket `VARCHAR(255)` for every "string" column
+## TD-009 — Blanket `VARCHAR(255)` for every "string" column — RESOLVED
 
-**Where:** `lib/compiler/sql/type-map.ts`
+**Where:** `lib/compiler/sql/type-map.ts`, `lib/compiler/drizzle/type-map.ts`, `lib/ast/schema.ts`
 
-**Priority:** Low
+**Priority:** was Low, now closed
 
-`email`, `slug`, `password_hash` all get the same arbitrary width in generated schemas regardless of real-world sizing.
+**Fix (Sprint 6, S6-005):** `ColumnNode` gained an optional `maxLength` field (only meaningful for `type: "string"`); both compilers now render `VARCHAR(${maxLength ?? 255})`/`varchar(name, { length: maxLength ?? 255 })`, preserving the existing 255 default whenever it's unset so no existing output changes. `lib/ai/ast-prompt-instructions.ts` now guides every provider to set a realistic `maxLength` (short identifier-like columns get a small width, display names a mid-size width, and genuinely long free text should use `type: "text"` instead of a large `maxLength`) rather than leaving every string column at one arbitrary width.
 
-## TD-010 — No business-rule `CHECK` constraints beyond enum values
+## TD-010 — No business-rule `CHECK` constraints beyond enum values — RESOLVED
 
-**Where:** `lib/ai/providers/gemini-prompts.ts` + `lib/ast/analyzer.ts`
+**Where:** `lib/ai/ast-prompt-instructions.ts`
 
-**Priority:** Medium
+**Priority:** was Medium, now closed
 
-Nothing like `price >= 0` gets generated even when obviously implied by the prompt.
+**Fix (Sprint 6, S6-005):** the AST and both compilers already fully supported table-level `check` constraints (`lib/ast/schema.ts`'s `tableConstraintNodeSchema`, rendered by `lib/compiler/sql/render-table.ts` and `lib/compiler/drizzle/render-table.ts`) — the gap was purely in prompt guidance. `buildSharedAstInstructions()` now tells every provider to add a non-negative `check` constraint for numeric columns unambiguously representing a price, amount, quantity, or age, while explicitly not inventing constraints where the business meaning is unclear.
 
 ## TD-011 — `CLAUDE.md` folder-structure accuracy
 
