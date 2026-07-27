@@ -90,7 +90,11 @@ export function SplitPaneCanvas({
           affordance without depending on -- or fighting -- the divider's
           own live drag position. */}
       {collapse && (
-        <div className="absolute top-1 right-1 z-10 flex gap-0.5">
+        /* gap-1, not gap-0.5 (which was off Design-System-2.0.md §4's
+           spacing scale to begin with): these are icon-only buttons with a
+           44px hit-slop (S6-006) -- a wider gap reduces overlap between
+           adjacent hit areas. */
+        <div className="absolute top-1 right-1 z-10 flex gap-1">
           <Button
             variant="outline"
             size="icon-sm"

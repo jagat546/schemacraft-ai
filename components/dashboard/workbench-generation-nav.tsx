@@ -36,7 +36,9 @@ export function GenerationNav({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    // gap-2, not gap-1: these are icon-only buttons with a 44px hit-slop
+    // (S6-006) -- a wider gap reduces overlap between adjacent hit areas.
+    <div className="flex items-center gap-2">
       <Button
         variant="outline"
         size="icon-sm"
