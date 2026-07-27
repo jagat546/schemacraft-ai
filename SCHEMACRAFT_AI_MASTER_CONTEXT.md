@@ -1,8 +1,8 @@
 # SchemaCraft AI — Master Context
 
 **Status:** Authoritative project reference. Describes the repository as it exists today.
-**Last verified:** 2026-07-27, at Sprint 6 closure (S6-008), branch `feature/sprint-6-application`.
-**Maintenance rule:** Update this document whenever architecture, features, or repository structure change. If this document and the repository disagree, the repository is correct — file a doc-sync task rather than trusting this file blindly.
+**Last verified:** 2026-07-27, at Sprint 7 closure (S7-004), branch `feature/sprint-6-application`.
+**Maintenance rule:** Update this document whenever architecture, features, or repository structure change. If this document and the repository disagree, the repository is correct — file a doc-sync task rather than trusting this file blindly. Sprint 7 was scoped for private-beta readiness and its closure task deliberately kept this sync targeted (see §10) rather than a full rewrite — README.md was explicitly out of scope this sprint and remains unsynced.
 
 ---
 
@@ -10,8 +10,8 @@
 
 - **Project name:** SchemaCraft AI
 - **Product vision:** Turn a plain-English description of a data model into a complete, internally-consistent set of database artifacts — SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram — generated from one deterministic pipeline so every artifact stays consistent with every other.
-- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication (including password reset and session-expiration recovery), project/generation persistence, generation history/navigation with undoable delete, a full Account Settings screen (now including a working delete-account flow), a Monaco-powered Workbench (fullscreen mode, route-scoped command palette commands, prev/next generation nav, session-persisted layout state), a public marketing site with an unauthenticated demo sandbox and a richer set of landing sections, an extensible multi-provider AI architecture (Gemini/Anthropic/OpenAI all implemented and registered, provider selection centralized and routed by an explicit-choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback policy, though Gemini alone serves real traffic today), and — new this sprint — a Generator Retry action, authenticated-user generation rate limiting (60/hour, burst 10/minute), business-rule `CHECK` constraints and realistic `VARCHAR` sizing in generated output, a 44×44px hit-slop on every icon-only button, and a dismissible first-run onboarding card on the Dashboard. Every generated schema still includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 6, task S6-008).
-- **Current milestone:** Sprint 6 — Product Hardening & First-Run Experience, complete (S6-001 through S6-008: Generator Retry, a deployment-strategy audit (AD-006, DevOps-owned, not implemented by this sprint), business-rule schema output quality, authenticated rate limiting, delete-account implementation, an icon-button touch-target fix, first-run onboarding, and this closure task). Sprint 5 (AI Provider Architecture, S5-001 through S5-005) completed prior; Sprint 4 (UX 2.0 Implementation, S4-001 through S4-017) before that; Sprint 3A (spec QA) and Sprint 1 (S1-001 through S1-005) before that; Sprint 0 (Project Recovery) first. Version `0.7.1` per `package.json`.
+- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication (including password reset and session-expiration recovery), project/generation persistence, generation history/navigation with undoable delete and an Edit & Regenerate action, a full Account Settings screen (including a working delete-account flow), a Monaco-powered Workbench (fullscreen mode, route-scoped command palette commands, prev/next generation nav, session-persisted layout state), a public marketing site with an unauthenticated demo sandbox and a richer set of landing sections, an extensible multi-provider AI architecture (Gemini/Anthropic/OpenAI all implemented and registered, provider selection centralized, though Gemini alone serves real traffic today), a Generator Retry action, authenticated-user generation rate limiting with a clear retry-time estimate on rejection, business-rule `CHECK` constraints and realistic `VARCHAR` sizing in generated output, a 44×44px hit-slop on every icon-only button, a dismissible first-run onboarding card, and — new this sprint — route-level loading/error/not-found states across every authenticated route. Every generated schema still includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 7, task S7-004).
+- **Current milestone:** Sprint 7 — Private Beta Readiness, complete (S7-001 through S7-004: route-level loading/error/not-found states, Edit & Regenerate, rate-limit rejection clarity, and this closure task). Scoped specifically for an imminent private beta (100 real users) — README/Developer-Settings/generation-diff/documentation-cleanup work was deliberately deferred to a Sprint 8 parking lot per explicit product direction, since none of it blocks or is noticed by a beta user. **The single most important open item is not a Sprint 7 task at all:** the SQL functions behind delete-account (S6-003) and authenticated rate limiting (S6-004/S7-003) are still unapplied to any live database — see §9. Sprint 6 (Product Hardening & First-Run Experience, S6-001 through S6-008) completed prior; Sprint 5 (AI Provider Architecture, S5-001 through S5-005) before that; Sprint 4 (UX 2.0 Implementation, S4-001 through S4-017) before that; Sprint 3A (spec QA) and Sprint 1 (S1-001 through S1-005) before that; Sprint 0 (Project Recovery) first. Version `0.7.1` per `package.json`.
 
 ---
 
@@ -47,7 +47,7 @@ Only technologies with confirmed, current implementation usage are listed.
 | Zip bundling | `fflate` (S4-013) | `features/ai-workspace/lib/export-bundle.ts` — client-side "Export all" zip of all five artifacts |
 | Markdown rendering | `react-markdown` + `remark-gfm` | `features/workbench/components/markdown-viewer.tsx` |
 | Command palette | `cmdk` | `features/shell/components/command-palette.tsx`; gained a generic, route-scoped command registry (`command-registry-provider.tsx`, S4-015) on top of the existing static command list |
-| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (347 tests, 45 files, two-project config: `node` + `jsdom`-backed `dom`) |
+| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (360 tests, 50 files, two-project config: `node` + `jsdom`-backed `dom`) |
 | Accessibility testing | `jest-axe` (axe-core, S4-016) | `vitest.setup.dom.ts` (matcher registration), `test/a11y.test.tsx` — structural/ARIA checks only; color-contrast is not evaluated in jsdom (no compiled stylesheet loaded into these unit tests) |
 | CI/CD | GitHub Actions | `.github/workflows/project_ci.yml` / `project_cd.yml` — unchanged by Sprint 6 (CI/CD is DevOps-owned, out of this sprint's application-developer scope; see AD-006/TD-024). `project_ci.yml` still triggers only on `workflow_dispatch` (no automatic push/PR verification), and `project_cd.yml` is non-functional as written (targets a stale `develop/chirag` branch filter) and conflicts with Vercel as the confirmed production platform. Audited and documented, not fixed, this sprint. |
 | Hosting | Vercel | `.vercel/project.json`; confirmed as the approved production platform (S6-002/AD-006). Deploys currently manual (`vercel --prod`) — no Git↔Vercel auto-deploy integration is configured (TD-005, still open, DevOps-owned) |
@@ -335,15 +335,15 @@ Principles observed as consistently applied throughout the codebase, and/or expl
 
 ## 8. Current Repository Status
 
-As verified at Sprint 6 closure (task S6-008):
+As verified at Sprint 7 closure (task S7-004):
 
 | Check | Status |
 |---|---|
-| Repository health | Healthy — Sprints 0/1/3A/4/5 established a clean, verified baseline; Sprint 6 added seven application-layer tasks (Retry, output quality, rate limiting, delete-account, touch targets, onboarding, closure) plus a DevOps-audit-only task (S6-002) on top of it, with no regressions, verified after every single task |
-| Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 6 |
+| Repository health | Healthy — Sprints 0/1/3A/4/5/6 established a clean, verified baseline; Sprint 7 added three narrowly-scoped, beta-readiness application tasks (route-level loading/error/not-found, Edit & Regenerate, rate-limit rejection clarity) plus this closure task, with no regressions, verified after every single task |
+| Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 7 |
 | TypeScript (`npm run typecheck`) | ✅ Passing — zero errors |
 | Lint (`npm run lint`) | ✅ Passing — zero errors, zero warnings |
-| Tests (`npm test`) | ✅ Passing — 347/347 tests across 45 files |
+| Tests (`npm test`) | ✅ Passing — 360/360 tests across 50 files |
 | Git working tree | Clean relative to `HEAD` — no unintended tracked-file changes |
 | Sprint 0 | ✅ Complete — see `Sprint-00-Recovery.md` |
 | Sprint 1 | ✅ Complete — S1-001 through S1-005 |
@@ -351,12 +351,15 @@ As verified at Sprint 6 closure (task S6-008):
 | Sprint 4 | ✅ Complete — S4-001 through S4-017; see `Sprint-04-Closure.md` |
 | Sprint 5 | ✅ Complete — S5-001 through S5-005; see `Sprint-05-Closure.md` |
 | Sprint 6 | ✅ Complete — S6-001 through S6-008; see `Sprint-06-Closure.md` |
+| Sprint 7 | ✅ Complete — S7-001 through S7-004; see `Sprint-07-Closure.md` |
 
 ---
 
 ## 9. Known Risks
 
-Updated at Sprint 6 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
+Updated at Sprint 7 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
+
+- **Escalated at Sprint 7 closure, more urgent than anything else in this section:** `check_authenticated_rate_limit()` (S6-004, revised S7-003) and `delete_own_account()` (S6-003/AD-005) are still unapplied to any live database. Since the rate-limit check fails closed on any RPC error, **authenticated generation is completely broken for every user until this migration is applied** — not degraded, entirely blocked. This must happen before any private beta invite goes out; it is not a code task (the SQL is already reviewed and committed) and cannot be performed in this environment (no live Supabase credentials).
 
 - ~~Unaddressed self-rated Critical tech debt (TD-003, TD-004)~~ — **Resolved, Sprint 1.**
 - ~~TD-006 (history/navigation)~~ — **Resolved, Sprint 1.**
@@ -425,6 +428,14 @@ The full, unabridged risk and issue inventory lives in `TECH_DEBT.md`; this sect
 
 **Known residual gaps from Sprint 6, disclosed not hidden:** the deployment-target ambiguity found in S6-002's audit is real and unresolved (DevOps-owned, out of this sprint's scope); the two new prepared-but-unapplied SQL functions (S6-003, S6-004) still need a live, non-production Supabase smoke test before being considered fully verified; no live browser/pixel verification of the S6-006 touch-target fix was performed. See §9 for the full list. None block Sprint 6's own acceptance criteria.
 
-**Sprint 7 has not begun.** Per this Sprint 6 execution's own standing instructions, no Sprint 7 scope is started or implied by anything in this document.
+**Sprint 7 — Private Beta Readiness: ✅ Complete.** Full detail in `Sprint-07-Closure.md`. Scoped specifically for an imminent private beta (100 real users), not general product maturity — README refresh, the Developer Settings toggle, generation-diff view, and documentation cleanup were all explicitly deferred to a Sprint 8 parking lot since none of them block or are noticed by a beta user. Summary:
+- **S7-001** — Route-level loading/error/not-found states: `app/(dashboard)/loading.tsx` (a shared skeleton fallback for every authenticated route), `app/error.tsx` + `app/global-error.tsx` (this product's own `ErrorState` pattern instead of Next's default crash screen), and `app/not-found.tsx` (a branded 404). All four are purely additive Next.js App Router convention files.
+- **S7-002** — Edit & Regenerate: an action on each `GenerationHistoryItem` that carries a past generation's original prompt into the Generator (reusing the exact `generation-store`/navigation pattern `OnboardingCard`, S6-007, already established) so a user can adjust a schema without reconstructing the prompt from memory.
+- **S7-003** — Rate-limit rejection clarity: `check_authenticated_rate_limit()` now returns `jsonb` (allowed + `retry_after_seconds`) instead of a plain boolean, and `lib/repositories/rate-limit.repository.ts`'s `formatRateLimitRetryMessage()` turns that into a clear "try again in about N seconds/minutes" message instead of a bare "try again later." Still prepared-but-unapplied SQL, same discipline as S6-003/S6-004.
+- **S7-004** — This closure task: full validation on the merged state, and a deliberately targeted (not exhaustive) sync of this document — per the approved Sprint 7 scope, README.md and a full rewrite of every section were explicitly out of bounds this sprint.
+
+**Known residual gaps from Sprint 7, disclosed not hidden:** the single most important one is escalated in §9, not buried here — the two prepared SQL functions this product's rate-limiting and delete-account features depend on are still unapplied to any live database, and authenticated generation is completely broken until that happens. No live browser/device verification of anything in this sprint was performed in this environment. See §9 for the full list.
+
+**Sprint 8 has not begun.** Per this Sprint 7 execution's own standing instructions, no Sprint 8 scope is started or implied by anything in this document. Candidate Sprint 8 scope (parking lot, not planned here): README refresh, the Developer Settings "Show raw project IDs" toggle, a generation-comparison/diff view, and the documentation-cleanup items already deferred from Sprint 7.
 
 **Remaining open work (not part of Sprint 1, not newly invented here):** `docs/planning/v0.7.1-roadmap.md` Milestone 4 (Git↔Vercel integration, production data cleanup — human-gated) and the rest of Milestone 5 (native `ENUM` reconsideration, composite FK physical constraints, CSP headers) — CHECK-constraint prompt guidance and VARCHAR sizing, also originally listed under Milestone 5, are now closed (S6-005).
