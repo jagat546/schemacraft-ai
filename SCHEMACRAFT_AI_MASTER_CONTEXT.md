@@ -1,7 +1,7 @@
 # SchemaCraft AI — Master Context
 
 **Status:** Authoritative project reference. Describes the repository as it exists today.
-**Last verified:** 2026-07-27, at Sprint 5 closure (S5-005), branch `feature/sprint-5-provider-expansion`.
+**Last verified:** 2026-07-27, at Sprint 6 closure (S6-008), branch `feature/sprint-6-application`.
 **Maintenance rule:** Update this document whenever architecture, features, or repository structure change. If this document and the repository disagree, the repository is correct — file a doc-sync task rather than trusting this file blindly.
 
 ---
@@ -10,8 +10,8 @@
 
 - **Project name:** SchemaCraft AI
 - **Product vision:** Turn a plain-English description of a data model into a complete, internally-consistent set of database artifacts — SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram — generated from one deterministic pipeline so every artifact stays consistent with every other.
-- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication (including password reset and session-expiration recovery), project/generation persistence, generation history/navigation with undoable delete, a full Account Settings screen, a Monaco-powered Workbench (fullscreen mode, route-scoped command palette commands, prev/next generation nav, session-persisted layout state), a public marketing site with an unauthenticated demo sandbox and a richer set of landing sections, and — new this sprint — an extensible, multi-provider AI architecture (Gemini/Anthropic/OpenAI all implemented and registered, provider selection centralized and routed by an explicit-choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback policy, though Gemini alone serves real traffic today). Every generated schema still includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 5, task S5-005).
-- **Current milestone:** Sprint 5 — AI Provider Architecture, complete (S5-001 through S5-005: provider-agnostic architecture foundation, the delete-account decision record (AD-005), Anthropic and OpenAI provider implementations, centralized provider selection, and this closure task). Sprint 4 (UX 2.0 Implementation, S4-001 through S4-017) completed prior; Sprint 3A (spec QA) and Sprint 1 (S1-001 through S1-005) before that; Sprint 0 (Project Recovery) first. Version `0.7.1` per `package.json`.
+- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication (including password reset and session-expiration recovery), project/generation persistence, generation history/navigation with undoable delete, a full Account Settings screen (now including a working delete-account flow), a Monaco-powered Workbench (fullscreen mode, route-scoped command palette commands, prev/next generation nav, session-persisted layout state), a public marketing site with an unauthenticated demo sandbox and a richer set of landing sections, an extensible multi-provider AI architecture (Gemini/Anthropic/OpenAI all implemented and registered, provider selection centralized and routed by an explicit-choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback policy, though Gemini alone serves real traffic today), and — new this sprint — a Generator Retry action, authenticated-user generation rate limiting (60/hour, burst 10/minute), business-rule `CHECK` constraints and realistic `VARCHAR` sizing in generated output, a 44×44px hit-slop on every icon-only button, and a dismissible first-run onboarding card on the Dashboard. Every generated schema still includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 6, task S6-008).
+- **Current milestone:** Sprint 6 — Product Hardening & First-Run Experience, complete (S6-001 through S6-008: Generator Retry, a deployment-strategy audit (AD-006, DevOps-owned, not implemented by this sprint), business-rule schema output quality, authenticated rate limiting, delete-account implementation, an icon-button touch-target fix, first-run onboarding, and this closure task). Sprint 5 (AI Provider Architecture, S5-001 through S5-005) completed prior; Sprint 4 (UX 2.0 Implementation, S4-001 through S4-017) before that; Sprint 3A (spec QA) and Sprint 1 (S1-001 through S1-005) before that; Sprint 0 (Project Recovery) first. Version `0.7.1` per `package.json`.
 
 ---
 
@@ -47,10 +47,10 @@ Only technologies with confirmed, current implementation usage are listed.
 | Zip bundling | `fflate` (S4-013) | `features/ai-workspace/lib/export-bundle.ts` — client-side "Export all" zip of all five artifacts |
 | Markdown rendering | `react-markdown` + `remark-gfm` | `features/workbench/components/markdown-viewer.tsx` |
 | Command palette | `cmdk` | `features/shell/components/command-palette.tsx`; gained a generic, route-scoped command registry (`command-registry-provider.tsx`, S4-015) on top of the existing static command list |
-| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (329 tests, 40 files, two-project config: `node` + `jsdom`-backed `dom`) |
+| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (347 tests, 45 files, two-project config: `node` + `jsdom`-backed `dom`) |
 | Accessibility testing | `jest-axe` (axe-core, S4-016) | `vitest.setup.dom.ts` (matcher registration), `test/a11y.test.tsx` — structural/ARIA checks only; color-contrast is not evaluated in jsdom (no compiled stylesheet loaded into these unit tests) |
-| CI/CD | GitHub Actions | `.github/workflows/project_ci.yml` / `project_cd.yml` — replaced the previous single `ci.yml` outside this project's own Sprint 4/5 work (merged into `main` ahead of Sprint 5, alongside a `next.config.ts` change adding `output: "standalone"`) |
-| Hosting | Vercel | `.vercel/project.json`; deploys currently manual (`vercel --prod`) — no Git↔Vercel auto-deploy integration is configured |
+| CI/CD | GitHub Actions | `.github/workflows/project_ci.yml` / `project_cd.yml` — unchanged by Sprint 6 (CI/CD is DevOps-owned, out of this sprint's application-developer scope; see AD-006/TD-024). `project_ci.yml` still triggers only on `workflow_dispatch` (no automatic push/PR verification), and `project_cd.yml` is non-functional as written (targets a stale `develop/chirag` branch filter) and conflicts with Vercel as the confirmed production platform. Audited and documented, not fixed, this sprint. |
+| Hosting | Vercel | `.vercel/project.json`; confirmed as the approved production platform (S6-002/AD-006). Deploys currently manual (`vercel --prod`) — no Git↔Vercel auto-deploy integration is configured (TD-005, still open, DevOps-owned) |
 
 ---
 
@@ -94,7 +94,9 @@ features/               Feature modules — the primary unit of UI ownership
                            hook, prompt suggestions/templates (S4-011),
                            StagedOutputReveal + ExportAllButton (S4-012/013)
   compiler/                Generation status display (idle/generating/error/
-                           session-expired, S4-006B/AD-004)
+                           session-expired, S4-006B/AD-004; error branch now
+                           renders a Retry action, S6-001, wired to the same
+                           submission path the Generate button uses)
   workbench/               OutputTabs, CodeViewer (Monaco, S4-014), MarkdownViewer,
                            MermaidViewer, OutputActions, OutputSkeleton, split-pane
                            canvas (panel-collapse + controlled split sizes, S4-015).
@@ -107,9 +109,17 @@ features/               Feature modules — the primary unit of UI ownership
   account-settings/        Account Settings screen (S4-010/010B): appearance,
                            keyboard shortcuts reference, accessibility
                            (reduced-motion/high-contrast, cookie-backed),
-                           account (email/password/sign-out-all-sessions),
+                           account (email/password/sign-out-all-sessions,
+                           plus a working delete-account flow with a
+                           high-friction confirmation dialog, S6-003/AD-005),
                            billing/preferences/developer (genuinely disabled
                            placeholders, no backend yet)
+  onboarding/              (S6-007) OnboardingCard -- a dismissible,
+                           first-run empty-state card on the Dashboard
+                           (example prompts, a templates entry point, a
+                           "Generate your first schema" CTA, a docs link);
+                           auto-hides permanently after a first successful
+                           generation, not just on explicit dismiss
   landing/                 Public marketing page components — hero, sandbox,
                            feature showcase, nav, footer, plus (S4-007) visual
                            pipeline, interactive demo, social proof, pricing, FAQ
@@ -133,9 +143,12 @@ hooks/                  Shared, generic hooks not owned by any one feature
                          use-undoable-action)
 
 lib/                    Backend logic and shared non-UI code
-  actions/                 Server Action boundary ("use server") — auth,
-                           project/generation CRUD, schema generation,
-                           account preferences (S4-010B)
+  actions/                 Server Action boundary ("use server") — auth
+                           (now including deleteAccountAction, S6-003),
+                           project/generation CRUD, schema generation
+                           (now rate-limited and onboarding-dismissing,
+                           S6-004/S6-007), account preferences (S4-010B),
+                           onboarding dismissal (S6-007)
   services/                generation.service.ts — pipeline orchestrator;
                            resolves its AI provider via lib/ai/provider-resolver.ts
                            (S5-004) rather than importing one directly
@@ -153,10 +166,21 @@ lib/                    Backend logic and shared non-UI code
                            provider-factory trio per provider: gemini*,
                            anthropic*, openai*)
   ast/                      Canonical Schema AST: Zod schema, types, structural
-                           validator, semantic analyzer
+                           validator, semantic analyzer. ColumnNode gained an
+                           optional maxLength field (S6-005, only meaningful
+                           for type: "string"; unset falls back to each
+                           compiler's existing 255 default)
   compiler/                 5 independent compilers (SQL, Drizzle, JSON,
                            Markdown, Mermaid) + shared helpers + registry
-  repositories/             RLS-backed Supabase data access (projects, generations)
+  repositories/             RLS-backed Supabase data access (projects,
+                           generations, rate-limit.repository.ts S6-004 --
+                           wraps the check_authenticated_rate_limit RPC,
+                           extracts resolveRateLimitOutcome as pure,
+                           independently testable logic)
+  onboarding/               (S6-007) dismissed-cookie.ts -- cookie-backed
+                           onboarding-card dismissal, same guaranteed-
+                           no-DB-dependency pattern as the existing
+                           accessibility-preferences cookie
   stores/                   Zustand client-side state (ui, generation, project,
                            workbench — the last one persist-backed, S4-015)
   supabase/                 browser / server / middleware Supabase clients
@@ -176,8 +200,12 @@ public/                 Static assets — currently the default create-next-app
                          placeholder SVGs (file, globe, next, vercel, window);
                          no product-specific static assets yet
 
-supabase/               Row Level Security policies (rls.sql) and the
-                         handle_new_user signup trigger (triggers.sql)
+supabase/               Row Level Security policies (rls.sql -- now also
+                         including check_authenticated_rate_limit(),
+                         S6-004, and delete_own_account(), S6-003/AD-005,
+                         both prepared but NOT YET APPLIED to any live
+                         database) and the handle_new_user signup trigger
+                         (triggers.sql)
 
 drizzle/                Generated SQL migrations + Drizzle Kit metadata
 
@@ -193,9 +221,11 @@ vitest.mocks/           Test-only module doubles aliased in via vitest.config.ts
                          worker/canvas support jsdom doesn't have)
 
 docs/                   architecture/ (frontend-modularization log, AD-004
-                         session-expiration ADR, Sprint 5 AST design doc),
-                         planning/ (roadmaps + release log), specifications/
-                         (Sprint 3 UX 2.0 spec suite), screenshots/
+                         session-expiration, AD-005 delete-account, AD-006
+                         deployment-strategy audit, Sprint 5 AST design doc),
+                         planning/ (roadmaps + closure records + release
+                         log), specifications/ (Sprint 3 UX 2.0 spec suite),
+                         screenshots/
 
 scripts/                apply-supabase-sql.mjs — applies raw SQL to Supabase
 
@@ -230,7 +260,7 @@ Configuration files (repo root):
 
 **Client/server boundaries.** Page-composition components (`components/dashboard/*`) and layouts are async Server Components that fetch data directly. Interactive components (forms, the schema generator, output viewers) are explicitly marked `"use client"`. Server Actions (`lib/actions/*.ts`, `"use server"`) are the sole boundary between client interaction and backend logic — feature-local `hooks/`/`actions/` folders hold client-side orchestration (calling a Server Action, then pushing the result into a Zustand store), never business logic itself.
 
-**Server Actions.** `lib/actions/auth.ts` (signUp/signIn/signOut), `lib/actions/project.actions.ts` (project CRUD), `lib/actions/generation.actions.ts` (fetch a generation/project's generations, plus `deleteGenerationAction` added Sprint 1), `lib/actions/generate-schema.ts` (authenticated schema generation — auth check, Zod validation, delegates to `lib/services/generation.service.ts`), `lib/actions/generate-schema-public.ts` (unauthenticated sandbox generation — rate-limited via a `check_sandbox_rate_limit` Supabase RPC, never persists data).
+**Server Actions.** `lib/actions/auth.ts` (signUp/signIn/signOut, plus `deleteAccountAction` — S6-003/AD-005 — calling the `delete_own_account()` RPC then signing out globally), `lib/actions/project.actions.ts` (project CRUD), `lib/actions/generation.actions.ts` (fetch a generation/project's generations, plus `deleteGenerationAction` added Sprint 1), `lib/actions/generate-schema.ts` (authenticated schema generation — auth check, Zod validation, an authenticated-rate-limit check via `check_authenticated_rate_limit` — S6-004, 60/hour + 10/minute burst, fails closed — delegates to `lib/services/generation.service.ts`, then dismisses the onboarding cookie on any real generation result — S6-007), `lib/actions/generate-schema-public.ts` (unauthenticated sandbox generation — rate-limited via a `check_sandbox_rate_limit` Supabase RPC, never persists data), `lib/actions/onboarding.actions.ts` (S6-007, explicit onboarding-card dismissal).
 
 **The generation pipeline** (`lib/services/generation.service.ts`):
 ```
@@ -263,7 +293,10 @@ Prompt → Server Action (auth + Zod validation)
 
 Features confirmed implemented and reachable in the current codebase:
 
-- **Natural-language schema generation** — authenticated users describe a data model in plain English and receive SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram from one generation. Prompt Suggestions chips and a Templates picker (S4-011) help a user with a blank field get started; a staged reveal (S4-012) paces the five completion indicators honestly (the data is already fully present the instant it mounts — see `Generator-Experience-Specification.md` §Streaming Generation's implementation note).
+- **Natural-language schema generation** — authenticated users describe a data model in plain English and receive SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram from one generation. Prompt Suggestions chips and a Templates picker (S4-011) help a user with a blank field get started; a staged reveal (S4-012) paces the five completion indicators honestly (the data is already fully present the instant it mounts — see `Generator-Experience-Specification.md` §Streaming Generation's implementation note). A failed generation now shows a **Retry** action (S6-001) that resubmits the exact preserved prompt through the same submission path the Generate button uses. Generated SQL/Drizzle output now includes business-rule `CHECK` constraints for obvious non-negative numeric columns (price/quantity/age) and realistic `VARCHAR` sizing instead of a single blanket 255 width (S6-005).
+- **Authenticated-user generation rate limiting** (S6-004, not user-facing until a limit is actually hit) — 60 generations/hour, burst 10/minute, enforced via a `pg_advisory_xact_lock`-based Postgres function mirroring the public sandbox's own proven rate-limit pattern. Fails closed (denies the generation) if the limiter itself is unreachable.
+- **Delete account** (S6-003, executes AD-005's decision) — Account Settings' destructive section now has a real, working delete flow: a high-friction confirmation dialog (type the account's email or the word "delete") calling a `delete_own_account()` `SECURITY DEFINER` Postgres function scoped to `auth.uid()`, which cascades every one of the user's projects/generations/preferences away in one transaction, then signs the user out globally.
+- **First-run onboarding** (S6-007) — a dismissible card on the Dashboard for a first-time user: example prompts (reusing the Generator's own `PromptSuggestions`), a templates entry point, a "Generate your first schema" CTA, and a documentation link — not a guided tour or coach-marks overlay. Hides permanently on explicit dismiss or automatically after the user's first successful generation, whichever comes first.
 - **Multi-provider AI architecture (Sprint 5, not user-facing yet)** — the generation pipeline's AI call now runs through a provider-agnostic architecture supporting Gemini, Anthropic, and OpenAI, with centralized selection (explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini). No UI or account-level control exists yet to actually choose a provider — that's a deliberately separate, not-yet-made decision (see §9) — so every real generation still uses Gemini today.
 - **Public, unauthenticated demo sandbox** — a landing-page "try it now" flow (`features/landing/components/hero-sandbox.tsx`) that runs the same generation pipeline without persistence, rate-limited to 5 requests/hour per visitor (IP-hash-based, fails closed if the rate limiter is unreachable).
 - **Project-based organization** — users create named projects; generations are saved under a project. The dashboard grid gained quick actions, search, filters, and a metrics row (S4-008), and now orders by most recent generation activity rather than creation date (S4-009).
@@ -302,39 +335,43 @@ Principles observed as consistently applied throughout the codebase, and/or expl
 
 ## 8. Current Repository Status
 
-As verified at Sprint 5 closure (task S5-005):
+As verified at Sprint 6 closure (task S6-008):
 
 | Check | Status |
 |---|---|
-| Repository health | Healthy — Sprints 0/1/3A/4 established a clean, verified baseline; Sprint 5 added a 5-task AI provider architecture on top of it (foundation, Anthropic, OpenAI, centralized selection, closure) with no regressions, verified after every single task |
-| Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 5 |
+| Repository health | Healthy — Sprints 0/1/3A/4/5 established a clean, verified baseline; Sprint 6 added seven application-layer tasks (Retry, output quality, rate limiting, delete-account, touch targets, onboarding, closure) plus a DevOps-audit-only task (S6-002) on top of it, with no regressions, verified after every single task |
+| Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 6 |
 | TypeScript (`npm run typecheck`) | ✅ Passing — zero errors |
 | Lint (`npm run lint`) | ✅ Passing — zero errors, zero warnings |
-| Tests (`npm test`) | ✅ Passing — 329/329 tests across 40 files |
+| Tests (`npm test`) | ✅ Passing — 347/347 tests across 45 files |
 | Git working tree | Clean relative to `HEAD` — no unintended tracked-file changes |
 | Sprint 0 | ✅ Complete — see `Sprint-00-Recovery.md` |
 | Sprint 1 | ✅ Complete — S1-001 through S1-005 |
 | Sprint 3A | ✅ Complete — spec QA pass over the Sprint 2/3 documentation suite |
 | Sprint 4 | ✅ Complete — S4-001 through S4-017; see `Sprint-04-Closure.md` |
 | Sprint 5 | ✅ Complete — S5-001 through S5-005; see `Sprint-05-Closure.md` |
+| Sprint 6 | ✅ Complete — S6-001 through S6-008; see `Sprint-06-Closure.md` |
 
 ---
 
 ## 9. Known Risks
 
-Updated at Sprint 5 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
+Updated at Sprint 6 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
 
 - ~~Unaddressed self-rated Critical tech debt (TD-003, TD-004)~~ — **Resolved, Sprint 1.**
 - ~~TD-006 (history/navigation)~~ — **Resolved, Sprint 1.**
 - **Documentation/continuity gap around "UX 2.0" — resolved by adoption.** Sprint 4 *is* the UX 2.0 implementation; the gap noted at Sprint 1 closure no longer applies now that the specs have a concrete, shipped implementation to point to.
-- **No Git↔Vercel auto-deploy integration** (TD-005) — still open, human-gated by design; unrelated to Sprint 5's scope. Note: `main`'s CI was itself restructured ahead of Sprint 5 (`.github/workflows/ci.yml` → `project_ci.yml`/`project_cd.yml`, plus `next.config.ts` gaining `output: "standalone"`) by work outside this project's own Sprint 4/5 execution — merged in at the start of Sprint 5 (S5-004/S5-005 session), not by any Sprint 5 task itself.
+- **CI does not run automatically, and the EC2/PM2 CD pipeline is non-functional** (new finding, S6-002 audit; TD-024). `project_ci.yml` is `workflow_dispatch`-only (no automatic push/PR verification); `project_cd.yml` targets a stale `develop/chirag` branch filter and deploys to EC2/PM2, which conflicts with Vercel as the now-confirmed production platform (AD-006). This is DevOps-owned infrastructure work, out of Sprint 6's application-developer scope — audited and documented (`docs/architecture/AD-006-deployment-strategy.md`), not fixed.
+- **No Git↔Vercel auto-deploy integration** (TD-005) — still open, human-gated by design; now reaffirmed as the correct direction under AD-006's confirmed Vercel decision, not yet implemented.
 - **Placeholder/test data visible in the production Supabase account** (TD-015) — still open, requires explicit sign-off before deletion.
-- **Two prepared-but-not-applied database changes await human sign-off** (Sprint 4): a Postgres trigger (S4-009) and a `user_preferences` table (S4-010B) — both written as code (SQL/Drizzle), deliberately never applied to any live database in this environment (no live Supabase credentials available).
-- **Delete-account decision resolved (AD-005), implementation still pending** (updated, Sprint 5). Sprint 4 left this as an open architectural question; **AD-005** (`docs/architecture/AD-005-delete-account.md`, Sprint 5 S5-002) resolved it — hard delete, immediate, no grace period, via a new `SECURITY DEFINER` Postgres function `delete_own_account()` scoped to `auth.uid()`, leaning entirely on the FK cascade chain already in `lib/db/schema.ts` (`profiles` → `projects` → `generations` → `user_preferences`, all `ON DELETE CASCADE`). The SQL, the Server Action, and the Account Settings confirmation UI are not yet built — tracked as its own future task, not resolved by the ADR itself.
-- **Multi-provider AI architecture exists, but only Gemini is usable today** (new, Sprint 5). Anthropic and OpenAI are fully implemented and registered (S5-002/S5-003), and provider selection is centralized (S5-004: explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini) — but no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` has been provisioned in any environment, and no UI or account-level setting exists yet to let a user or operator actually choose a non-default provider. This is expected, not a defect: S5-004's own scope was the selection *mechanism*, not provisioning credentials or building a picker.
-- **Generator Failure Recovery is partially unimplemented** (TD-022, Sprint 4) — no Retry button exists on a failed generation yet (though the prompt is correctly preserved), and the spec's "partial-streaming failure" behavior is architecturally impossible given the one-atomic-call pipeline.
+- **Three prepared-but-not-applied database changes await human sign-off**: a Postgres trigger (S4-009), a `user_preferences` table (S4-010B), and — new this sprint — `check_authenticated_rate_limit()`/`generation_rate_limit_events` (S6-004) and `delete_own_account()` (S6-003/AD-005) — all written as reviewed, version-controlled SQL, deliberately never applied to any live database in this environment (no live Supabase credentials available).
+- ~~Delete-account decision resolved (AD-005), implementation still pending~~ — **Implemented, Sprint 6 (S6-003).** `delete_own_account()`, `deleteAccountAction`, and the Account Settings confirmation dialog all now exist exactly per AD-005's recommendation. The SQL function itself still needs a live, non-production Supabase smoke test before being considered fully verified (AD-005's own disclosed gap; unchanged by this sprint, since no live credentials exist here either).
+- **Multi-provider AI architecture exists, but only Gemini is usable today.** Anthropic and OpenAI are fully implemented and registered (S5-002/S5-003), and provider selection is centralized (S5-004: explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini) — but no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` has been provisioned in any environment, and no UI or account-level setting exists yet to let a user or operator actually choose a non-default provider.
+- ~~Generator Failure Recovery is partially unimplemented (TD-022)~~ — **Resolved, Sprint 6 (S6-001).** A Retry action now exists on a failed generation, resubmitting the preserved prompt via the same path the Generate button uses. The spec's former "partial-streaming failure" bullet was removed rather than built, since it was already established as architecturally impossible given the one-atomic-call pipeline.
 - **Two Workbench keyboard shortcuts from its own spec table were scoped out of S4-015** (TD-023, Sprint 4) — `Cmd/Ctrl+1..5` tab-jump and `Cmd/Ctrl+Shift+C` copy-current-tab; the underlying actions remain reachable via mouse/command palette.
-- **Icon-only buttons don't meet the 44×44px touch-target minimum** (TD-020, Sprint 4) and **Workbench Fullscreen Mode hides chrome instantly rather than with the spec's animated transition** (TD-021, Sprint 4) — both found and deliberately not rushed during S4-016's accessibility audit.
+- ~~Icon-only buttons don't meet the 44×44px touch-target minimum (TD-020)~~ — **Resolved, Sprint 6 (S6-006).** Every icon-only `Button` size variant now carries a 44px hit-slop pseudo-element; tightly-packed clusters (Output actions, Workbench generation nav, split-pane collapse chevrons, Mermaid zoom controls) had their gaps widened one step to reduce hit-slop overlap between neighbors. No live browser/pixel measurement was performed in this environment, disclosed rather than assumed.
+- **Workbench Fullscreen Mode hides chrome instantly rather than with the spec's animated transition** (TD-021, Sprint 4) — found and deliberately not rushed during S4-016's accessibility audit; unchanged by Sprint 6.
+- ~~No business-rule CHECK constraints beyond enum values (TD-010); blanket VARCHAR(255) for every string column (TD-009)~~ — **Resolved, Sprint 6 (S6-005).** Shared AI prompt guidance now asks for a non-negative CHECK constraint on obvious price/quantity/age-like columns and a realistic `maxLength` per string column; both compilers already supported CHECK constraints structurally, and `maxLength` is a new, optional, backwards-compatible AST field defaulting to 255 when unset.
 - **Contrast (Design System 2.0 §11) was not verified with a real rendering/Lighthouse pass** — the automated accessibility suite added in S4-016 (jest-axe/axe-core) runs in jsdom, which never loads this app's actual compiled stylesheet. No authenticated Supabase session was available in this environment for a live browser pass either.
 - **Live browser/interactive verification of S4-015's Workbench chrome was not performed** — same root cause (no authenticated session available in this environment).
 
@@ -374,8 +411,20 @@ The full, unabridged risk and issue inventory lives in `TECH_DEBT.md`; this sect
 - **S5-004** — Centralized provider selection: a new `resolveAIProvider()` (`lib/ai/provider-resolver.ts`) implementing the accepted routing policy (explicit caller choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback), with `AIProviderRegistry` simplified to a pure name→instance lookup table (its own prior "default provider" tracking removed, since that decision now lives in exactly one place). `generation.service.ts`'s public API stayed backwards compatible throughout.
 - **S5-005** — This closure task: full validation on the merged state, `TECH_DEBT.md`/this document's own sync, and `Sprint-05-Closure.md`.
 
-**Known residual gaps from Sprint 5, disclosed not hidden:** delete-account is a resolved *decision* (AD-005) but still has no implementation; Anthropic/OpenAI are registered but unusable without their API keys provisioned and remain non-default by design; see §9 for the full list. None block Sprint 5's own acceptance criteria.
+**Known residual gaps from Sprint 5, disclosed not hidden:** delete-account was a resolved *decision* (AD-005) with no implementation at the time — closed in Sprint 6, see below; Anthropic/OpenAI are registered but unusable without their API keys provisioned and remain non-default by design; see §9 for the full list. None blocked Sprint 5's own acceptance criteria.
 
-**Sprint 6 has not begun.** Per this Sprint 5 execution's own standing instructions, no Sprint 6 scope is started or implied by anything in this document.
+**Sprint 6 — Product Hardening & First-Run Experience: ✅ Complete.** Full detail in `Sprint-06-Closure.md`. Summary:
+- **S6-002** — Deployment-strategy audit. Per this sprint's ownership rules (`.github/workflows/*` and other infrastructure/CI-CD/production-deployment configuration belong to a DevOps owner, not this execution role), no workflow or infra files were changed. Instead: audited and documented two real findings — `project_ci.yml` has no automatic push/PR trigger (manual `workflow_dispatch` only), and `project_cd.yml` is non-functional (targets a stale `develop/chirag` branch filter) and conflicts with Vercel as the now-confirmed production platform. Recorded in `docs/architecture/AD-006-deployment-strategy.md` and `TECH_DEBT.md` TD-024, with concrete recommended DevOps actions.
+- **S6-001** — Generator Retry: a real Retry action on a failed generation, wired to the exact same submission path the Generate button already uses (no new submission logic, no store changes). Corrected the Generator spec's "partial-streaming failure" bullet, already established as architecturally impossible, rather than leaving it aspirational (closes TD-022).
+- **S6-005** — Schema output quality: an optional `maxLength` field on `ColumnNode` (backwards compatible, defaults to 255) for realistic `VARCHAR`/`varchar` sizing, plus shared AI prompt guidance asking for a non-negative `CHECK` constraint on obvious price/quantity/age-like columns — the AST/compilers already fully supported table-level CHECK constraints; the actual gap was prompt guidance, not architecture (closes TD-009/TD-010).
+- **S6-004** — Authenticated-user generation rate limiting: 60/hour, burst 10/minute, via a new `check_authenticated_rate_limit()` `SECURITY DEFINER` function reusing the public sandbox's proven `pg_advisory_xact_lock` check-then-act pattern (keyed by `user_id` instead of `ip_hash`, enforcing both windows in one call). Fails closed if the limiter is unreachable. Prepared but not applied to any live database.
+- **S6-003** — Delete-account implementation, executing AD-005's already-accepted recommendation exactly: `delete_own_account()` (`SECURITY DEFINER`, scoped to `auth.uid()`, cascades via the existing FK chain), `deleteAccountAction`, and a high-friction confirmation dialog (type the account's email or the word "delete") in Account Settings.
+- **S6-006** — Icon-only button touch-target fix: a 44×44px `::before` hit-slop pseudo-element added to all four icon-only `Button` size variants in one shared place (reaching every consumer at once), plus a spacing bump in every tightly-packed icon-button cluster found during the audit, to reduce hit-slop overlap between neighbors (closes TD-020).
+- **S6-007** — First-run onboarding: a dismissible Dashboard card (example prompts reusing the Generator's own `PromptSuggestions`, a templates entry point, a "Generate your first schema" CTA, a documentation link) — a single static card, not a guided tour, per the Generator spec's own "training wheels that never come off" principle. Cookie-backed dismissal, same guaranteed pattern as the existing accessibility-preferences cookie; auto-dismisses on a user's first successful generation as well as on explicit dismiss.
+- **S6-008** — This closure task: full validation on the merged state, `TECH_DEBT.md`/this document's own sync, and `Sprint-06-Closure.md`.
 
-**Remaining open work (not part of Sprint 1, not newly invented here):** `docs/planning/v0.7.1-roadmap.md` Milestone 4 (Git↔Vercel integration, production data cleanup — human-gated) and the rest of Milestone 5 (native `ENUM` reconsideration, CHECK-constraint prompt guidance, composite FK physical constraints, VARCHAR sizing, CSP headers).
+**Known residual gaps from Sprint 6, disclosed not hidden:** the deployment-target ambiguity found in S6-002's audit is real and unresolved (DevOps-owned, out of this sprint's scope); the two new prepared-but-unapplied SQL functions (S6-003, S6-004) still need a live, non-production Supabase smoke test before being considered fully verified; no live browser/pixel verification of the S6-006 touch-target fix was performed. See §9 for the full list. None block Sprint 6's own acceptance criteria.
+
+**Sprint 7 has not begun.** Per this Sprint 6 execution's own standing instructions, no Sprint 7 scope is started or implied by anything in this document.
+
+**Remaining open work (not part of Sprint 1, not newly invented here):** `docs/planning/v0.7.1-roadmap.md` Milestone 4 (Git↔Vercel integration, production data cleanup — human-gated) and the rest of Milestone 5 (native `ENUM` reconsideration, composite FK physical constraints, CSP headers) — CHECK-constraint prompt guidance and VARCHAR sizing, also originally listed under Milestone 5, are now closed (S6-005).
