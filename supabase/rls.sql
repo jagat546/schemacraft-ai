@@ -169,20 +169,18 @@ grant execute on function public.check_sandbox_rate_limit(text, integer, integer
 -- reserve-then-execute pattern above -- same pg_advisory_xact_lock
 -- check-then-act race closure, keyed by user_id instead of ip_hash -- but
 -- enforces two windows (an hourly ceiling and a short burst ceiling) in
--- one call instead of one. Deliberately NOT YET APPLIED to any live
--- database (see this project's established "prepare but don't apply"
--- discipline for schema-adjacent changes, e.g. AD-005, S4-010B's
--- user_preferences) -- requires npm run db:generate && npm run db:migrate
--- plus this file, run with explicit human sign-off.
-
-create table if not exists public.generation_rate_limit_events (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists idx_generation_rate_limit_events_user_created
-  on public.generation_rate_limit_events (user_id, created_at);
+-- one call instead of one.
+--
+-- Table creation lives in a Drizzle migration (drizzle/migrations/
+-- 0002_nappy_raza.sql), not here -- same ownership split as
+-- sandbox_generations (ADR-002: Drizzle owns schema/relations/migrations,
+-- this file owns triggers/RLS/grants/SECURITY DEFINER functions). An
+-- earlier revision of this file created the table inline instead, which
+-- was inconsistent with that split and, discovered when actually applying
+-- this file for the first time (private-beta readiness pass), failed
+-- outright once user_preferences' own missing migration blocked the whole
+-- script -- corrected by generating the proper migration for both tables
+-- at once rather than patching around it here.
 
 -- Same access model as sandbox_generations: RLS enabled, but no grant and
 -- no policy for any role -- the SECURITY DEFINER function below is the

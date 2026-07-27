@@ -66,11 +66,11 @@ export const generations = pgTable(
 
 // S4-010B (Account Settings): one row per user, created lazily on first
 // preference save -- getUserPreferences() returns defaults when absent, so
-// no signup-time trigger is needed the way profiles has one. NOT YET
-// APPLIED to any database (no migration has been generated or run against
-// a live connection; this environment has none) -- schema-adjacent change
-// requiring the same explicit sign-off as S4-009's trigger before
-// `npm run db:generate && npm run db:migrate` is ever run for real.
+// no signup-time trigger is needed the way profiles has one. Migration
+// generated and applied to the dev/staging database during the private-
+// beta readiness pass (drizzle/migrations/0002_nappy_raza.sql) -- still
+// needs the same migration run against production with explicit sign-off
+// before this is live there.
 export const userPreferences = pgTable("user_preferences", {
   userId: uuid("user_id")
     .primaryKey()
@@ -103,8 +103,10 @@ export const sandboxGenerations = pgTable(
 // Authenticated-user generation rate limiting (S6-004) -- mirrors
 // sandboxGenerations above, keyed by user_id instead of ip_hash. Written
 // to exclusively via the SECURITY DEFINER function in supabase/rls.sql;
-// no direct table grant for any role. NOT YET APPLIED to any database --
-// same "prepare but don't apply" discipline as userPreferences above.
+// no direct table grant for any role. Migration generated and applied to
+// the dev/staging database during the private-beta readiness pass
+// (drizzle/migrations/0002_nappy_raza.sql) -- still needs the same
+// migration run against production with explicit sign-off.
 export const generationRateLimitEvents = pgTable(
   "generation_rate_limit_events",
   {
