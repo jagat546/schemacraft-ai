@@ -130,11 +130,13 @@ The server enforces a 4000-character cap (500 for the public sandbox) with a cle
 
 ## TD-014 — `aiConfig.model` is a Google-maintained alias, not a pinned version
 
-**Where:** `lib/config.ts`
+**Where:** `lib/ai/config.ts` (moved from `lib/config.ts`, Sprint 5 S5-001)
 
 **Priority:** Medium (accepted risk)
 
 `gemini-flash-latest` is deliberate — it's the fix for the exact failure mode that blocked the v0.7.0 release (a specific pinned model going overloaded/unavailable). Trade-off: behavior can shift without our control if Google repoints the alias. No mitigation currently planned; accepted explicitly during the v0.7.1 roadmap review.
+
+**Sprint 5 addendum (S5-002/S5-003):** `anthropicConfig.model` (`"claude-sonnet-5"`) and `openaiConfig.model` (`"gpt-4.1"`), same file, carry the inverse risk instead of this one — both are pinned specific identifiers, not "-latest"-style aliases, so neither can silently change behavior underneath the app the way Gemini's alias can, but either could eventually be retired/deprecated by its provider and start failing outright. Neither provider serves real traffic today (`DEFAULT_AI_PROVIDER` defaults to `gemini`, S5-004), so this is a low-priority, forward-looking note, not a live risk.
 
 ## TD-015 — Placeholder/test project data visible in the real production account
 

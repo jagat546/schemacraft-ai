@@ -1,7 +1,7 @@
 # SchemaCraft AI — Master Context
 
 **Status:** Authoritative project reference. Describes the repository as it exists today.
-**Last verified:** 2026-07-26, at Sprint 4 closure (S4-017), branch `feature/s4-016-a11y-audit` (linear descendant of `main`, no divergence).
+**Last verified:** 2026-07-27, at Sprint 5 closure (S5-005), branch `feature/sprint-5-provider-expansion`.
 **Maintenance rule:** Update this document whenever architecture, features, or repository structure change. If this document and the repository disagree, the repository is correct — file a doc-sync task rather than trusting this file blindly.
 
 ---
@@ -10,8 +10,8 @@
 
 - **Project name:** SchemaCraft AI
 - **Product vision:** Turn a plain-English description of a data model into a complete, internally-consistent set of database artifacts — SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram — generated from one deterministic pipeline so every artifact stays consistent with every other.
-- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication (including password reset and session-expiration recovery), project/generation persistence, generation history/navigation with undoable delete, a full Account Settings screen, a Monaco-powered Workbench (fullscreen mode, route-scoped command palette commands, prev/next generation nav, session-persisted layout state), and a public marketing site with an unauthenticated demo sandbox and a richer set of landing sections. Every generated schema still includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 4, task S4-017).
-- **Current milestone:** Sprint 4 — UX 2.0 Implementation, complete (S4-001 through S4-017: design tokens through Monaco integration, Workbench chrome, an accessibility audit pass, and this closure task). Sprint 3A (spec QA) and Sprint 1 (S1-001 through S1-005) completed prior. Sprint 0 (Project Recovery) completed before that. Version `0.7.1` per `package.json`.
+- **Current status:** Functioning product with a working end-to-end generation pipeline, authentication (including password reset and session-expiration recovery), project/generation persistence, generation history/navigation with undoable delete, a full Account Settings screen, a Monaco-powered Workbench (fullscreen mode, route-scoped command palette commands, prev/next generation nav, session-persisted layout state), a public marketing site with an unauthenticated demo sandbox and a richer set of landing sections, and — new this sprint — an extensible, multi-provider AI architecture (Gemini/Anthropic/OpenAI all implemented and registered, provider selection centralized and routed by an explicit-choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback policy, though Gemini alone serves real traffic today). Every generated schema still includes FK-column indexes and a join-table uniqueness warning where applicable. Repository builds, typechecks, lints, and tests clean as of the last verification (Sprint 5, task S5-005).
+- **Current milestone:** Sprint 5 — AI Provider Architecture, complete (S5-001 through S5-005: provider-agnostic architecture foundation, the delete-account decision record (AD-005), Anthropic and OpenAI provider implementations, centralized provider selection, and this closure task). Sprint 4 (UX 2.0 Implementation, S4-001 through S4-017) completed prior; Sprint 3A (spec QA) and Sprint 1 (S1-001 through S1-005) before that; Sprint 0 (Project Recovery) first. Version `0.7.1` per `package.json`.
 
 ---
 
@@ -36,7 +36,7 @@ Only technologies with confirmed, current implementation usage are listed.
 | Styling | Tailwind CSS 4 + `tw-animate-css` | `app/globals.css`, utility classes throughout |
 | Component library | shadcn/ui (on top of `@base-ui/react`) | `components/ui/*` primitives (button, card, dialog, select, sheet, sidebar, tabs, etc.) |
 | Icons | `lucide-react` | 40 files across the codebase |
-| AI provider | Google Gemini (`@google/genai`), model alias `gemini-flash-latest` | `lib/ai/client.ts`, `lib/ai/providers/gemini.ts` |
+| AI providers | Google Gemini (`@google/genai`, model alias `gemini-flash-latest`), Anthropic (`@anthropic-ai/sdk`, `claude-sonnet-5`, S5-002), OpenAI (`openai`, `gpt-4.1`, S5-003) | `lib/ai/client.ts` (all three raw SDK clients, lazily constructed — see §5), `lib/ai/providers/{gemini,anthropic,openai}.ts`. Selection centralized in `lib/ai/provider-resolver.ts` (S5-004): explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini. Only Gemini serves real traffic today; Anthropic/OpenAI are implemented and registered but not yet the default. |
 | Database / Auth | Supabase (PostgreSQL + Row Level Security, `@supabase/ssr`, `@supabase/supabase-js`) | `lib/supabase/{client,server,middleware}.ts`, `lib/repositories/*`, `supabase/rls.sql`, `supabase/triggers.sql` |
 | ORM (local tooling only) | Drizzle ORM / Drizzle Kit | `lib/db/{schema,relations,index}.ts`, `drizzle/migrations/*`, `drizzle.config.ts` — schema/migrations only, **not** used on the runtime request path (Supabase Server Client is used at runtime so Row Level Security policies see `auth.uid()`) |
 | Diagrams | Mermaid | `lib/compiler/mermaid/*`, `features/workbench/components/mermaid-viewer.tsx`, `features/workbench/components/mermaid-canvas.tsx` (pan/zoom via `react-zoom-pan-pinch`) |
@@ -47,9 +47,9 @@ Only technologies with confirmed, current implementation usage are listed.
 | Zip bundling | `fflate` (S4-013) | `features/ai-workspace/lib/export-bundle.ts` — client-side "Export all" zip of all five artifacts |
 | Markdown rendering | `react-markdown` + `remark-gfm` | `features/workbench/components/markdown-viewer.tsx` |
 | Command palette | `cmdk` | `features/shell/components/command-palette.tsx`; gained a generic, route-scoped command registry (`command-registry-provider.tsx`, S4-015) on top of the existing static command list |
-| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (280 tests, 33 files, two-project config: `node` + `jsdom`-backed `dom`) |
+| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (329 tests, 40 files, two-project config: `node` + `jsdom`-backed `dom`) |
 | Accessibility testing | `jest-axe` (axe-core, S4-016) | `vitest.setup.dom.ts` (matcher registration), `test/a11y.test.tsx` — structural/ARIA checks only; color-contrast is not evaluated in jsdom (no compiled stylesheet loaded into these unit tests) |
-| CI | GitHub Actions | `.github/workflows/ci.yml` |
+| CI/CD | GitHub Actions | `.github/workflows/project_ci.yml` / `project_cd.yml` — replaced the previous single `ci.yml` outside this project's own Sprint 4/5 work (merged into `main` ahead of Sprint 5, alongside a `next.config.ts` change adding `output: "standalone"`) |
 | Hosting | Vercel | `.vercel/project.json`; deploys currently manual (`vercel --prod`) — no Git↔Vercel auto-deploy integration is configured |
 
 ---
@@ -136,8 +136,22 @@ lib/                    Backend logic and shared non-UI code
   actions/                 Server Action boundary ("use server") — auth,
                            project/generation CRUD, schema generation,
                            account preferences (S4-010B)
-  services/                generation.service.ts — pipeline orchestrator
-  ai/                       Gemini client + provider adapter + prompt builder
+  services/                generation.service.ts — pipeline orchestrator;
+                           resolves its AI provider via lib/ai/provider-resolver.ts
+                           (S5-004) rather than importing one directly
+  ai/                       Multi-provider AI architecture (Sprint 5): client.ts
+                           (lazily-constructed Gemini/Anthropic/OpenAI SDK
+                           clients — see §5 for why), config.ts (per-provider
+                           model/token/timeout config), errors.ts
+                           (AIProviderError hierarchy), types.ts (provider-
+                           agnostic request/response contract), retry-strategy.ts,
+                           provider-registry.ts (name -> instance lookup),
+                           provider-resolver.ts (S5-004's centralized selection
+                           policy), ast-prompt-instructions.ts (shared
+                           database-design prompt content), providers/
+                           (interface.ts + one prompt-builder/response-parser/
+                           provider-factory trio per provider: gemini*,
+                           anthropic*, openai*)
   ast/                      Canonical Schema AST: Zod schema, types, structural
                            validator, semantic analyzer
   compiler/                 5 independent compilers (SQL, Drizzle, JSON,
@@ -197,7 +211,11 @@ Configuration files (repo root):
                            vitest.mocks/ and loads vitest.setup.dom.ts)
   postcss.config.mjs       Tailwind/PostCSS pipeline
   proxy.ts                 Next.js 16 root proxy — auth route protection
-  .env.example             documents the 4 required environment variables
+  .env.example             documents all environment variables (4 required:
+                           DATABASE_URL, the two Supabase vars, GEMINI_API_KEY;
+                           the rest optional with safe defaults/fallbacks —
+                           ANTHROPIC_API_KEY/OPENAI_API_KEY, S5-002/003, and
+                           DEFAULT_AI_PROVIDER, S5-004, among them)
 ```
 
 ---
@@ -217,7 +235,8 @@ Configuration files (repo root):
 **The generation pipeline** (`lib/services/generation.service.ts`):
 ```
 Prompt → Server Action (auth + Zod validation)
-       → Gemini Provider (generates a Canonical Schema AST only)
+       → AI Provider, resolved via lib/ai/provider-resolver.ts (S5-004) —
+         Gemini today; generates a Canonical Schema AST only
        → Structural validation (lib/ast/validator.ts, Zod)
        → Semantic analysis (lib/ast/analyzer.ts — duplicate names, dangling
          FKs, unsafe expressions as errors; missing PK, reserved keywords,
@@ -228,13 +247,15 @@ Prompt → Server Action (auth + Zod validation)
        → UI renders all 5 output tabs
 ```
 
+**AI provider architecture (Sprint 5).** What was one hard-coded Gemini call through Sprint 4 is now a provider-agnostic architecture: `AIProviderAdapter` (`lib/ai/providers/interface.ts`) is the contract every provider implements (`generateAST(request): Promise<AIGenerationResponse>`), backed by per-provider `PromptBuilder`/`ResponseParser` pairs (each provider's request/response shape and output-forcing mechanism genuinely differ — Gemini's `responseJsonSchema`, Anthropic's forced tool call, OpenAI's `response_format: json_schema` — S5-001/002/003), a shared `AIProviderError` class hierarchy (`lib/ai/errors.ts`, each subclass carrying a fixed `retryable` flag), and an `ExponentialBackoffRetryStrategy` each provider's own `generateAST` uses internally. `AIProviderRegistry` (`lib/ai/provider-registry.ts`) is a pure name → instance lookup table; `resolveAIProvider()` (`lib/ai/provider-resolver.ts`, S5-004) is the one place actual selection policy lives — explicit caller choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback, deliberately with no automatic failover, provider chaining, cross-provider retry, load balancing, or cost-based routing (a separate, not-yet-made decision if ever wanted). Every provider's raw SDK client is constructed lazily and cached (`lib/ai/client.ts`) rather than eagerly at module load — found necessary, not stylistic: OpenAI's SDK constructor throws immediately without an API key, unlike Gemini's/Anthropic's, and the registry constructs every registered provider on every generation regardless of which one is actually selected. `generation.service.ts`'s public API is unchanged by any of this — existing Server Action callers pass neither a provider instance nor a provider name and get exactly the same behavior as before.
+
 **Authentication.** Supabase Auth via `@supabase/ssr`. Session-cookie handling is split across `lib/supabase/{client,server,middleware}.ts`. Route protection is enforced twice (defense in depth): the Next.js 16 root proxy (`proxy.ts` → `lib/supabase/middleware.ts::updateSession`) redirects unauthenticated requests to `/dashboard*` to `/login`, and redirects authenticated requests to `/login`/`/signup` to `/dashboard`; independently, `app/(dashboard)/layout.tsx` calls `requireUser()` as a second gate. Password reset (`/reset-password`, `/reset-password/confirm`) and sign-out-all-sessions (Account Settings) added Sprint 4 (S4-006). `requireUser()` itself is now implemented on top of a new, non-redirecting `getSessionResult()` helper (`lib/auth/session-result.ts`, AD-004/S4-006B) — `requireUser()`'s own external behavior (redirect to `/login` on an expired/missing session) is unchanged; `getSessionResult()` exists so a Server Action (`generate-schema.ts`) can instead surface a `{status:"SESSION_EXPIRED"}` result the UI recovers from in place, without navigating the user away mid-generation.
 
 **Authorization.** Row Level Security (RLS) in Supabase is the sole authorization mechanism — every table has explicit SELECT/INSERT/UPDATE/DELETE policies keyed on `auth.uid()`, with no application-layer ownership filtering. Runtime data access always goes through the authenticated Supabase Server Client, never raw Drizzle queries, specifically so RLS policies see the real authenticated user.
 
 **Shared utilities.** `lib/utils.ts`, `lib/download.ts` (generic, output-agnostic — used by the Workbench but deliberately kept in the shared `lib` layer, not feature-owned), `hooks/use-copy-to-clipboard.ts`, `hooks/use-mobile.ts`, `types/ui.ts` (shared UI types consumed by `lib/stores/ui-store.ts` across features).
 
-**State management.** Four Zustand stores (`lib/stores/`): `ui-store.ts` (cross-cutting UI chrome state, e.g. active output tab), `generation-store.ts` (prompt draft + generation status union, including the `session-expired` variant), `project-store.ts` (project list + current selection, shared between the AI Workspace and Projects modules), and `workbench-store.ts` (S4-015 — Workbench fullscreen flag plus per-project active tab/panel-collapse/split-size/minimap-override state, the first store to use `zustand/middleware`'s `persist`, backed by `sessionStorage` and keyed per project id so it matches "for the session," not indefinitely). Rule enforced by convention (verified by inspection, not tooling): a store never calls a Server Action, Supabase, or Gemini directly — only pure state and state transitions.
+**State management.** Four Zustand stores (`lib/stores/`): `ui-store.ts` (cross-cutting UI chrome state, e.g. active output tab), `generation-store.ts` (prompt draft + generation status union, including the `session-expired` variant), `project-store.ts` (project list + current selection, shared between the AI Workspace and Projects modules), and `workbench-store.ts` (S4-015 — Workbench fullscreen flag plus per-project active tab/panel-collapse/split-size/minimap-override state, the first store to use `zustand/middleware`'s `persist`, backed by `sessionStorage` and keyed per project id so it matches "for the session," not indefinitely). Rule enforced by convention (verified by inspection, not tooling): a store never calls a Server Action, Supabase, or an AI provider directly — only pure state and state transitions.
 
 ---
 
@@ -243,6 +264,7 @@ Prompt → Server Action (auth + Zod validation)
 Features confirmed implemented and reachable in the current codebase:
 
 - **Natural-language schema generation** — authenticated users describe a data model in plain English and receive SQL DDL, a Drizzle ORM model, sample JSON, Markdown documentation, and a Mermaid ER diagram from one generation. Prompt Suggestions chips and a Templates picker (S4-011) help a user with a blank field get started; a staged reveal (S4-012) paces the five completion indicators honestly (the data is already fully present the instant it mounts — see `Generator-Experience-Specification.md` §Streaming Generation's implementation note).
+- **Multi-provider AI architecture (Sprint 5, not user-facing yet)** — the generation pipeline's AI call now runs through a provider-agnostic architecture supporting Gemini, Anthropic, and OpenAI, with centralized selection (explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini). No UI or account-level control exists yet to actually choose a provider — that's a deliberately separate, not-yet-made decision (see §9) — so every real generation still uses Gemini today.
 - **Public, unauthenticated demo sandbox** — a landing-page "try it now" flow (`features/landing/components/hero-sandbox.tsx`) that runs the same generation pipeline without persistence, rate-limited to 5 requests/hour per visitor (IP-hash-based, fails closed if the rate limiter is unreachable).
 - **Project-based organization** — users create named projects; generations are saved under a project. The dashboard grid gained quick actions, search, filters, and a metrics row (S4-008), and now orders by most recent generation activity rather than creation date (S4-009).
 - **Generation persistence and retrieval** — generations are saved to Supabase; a per-project Developer Workbench route displays a project's latest generation by default, or a specific past generation via `?generation=<id>`, with prev/next controls to step through history without leaving the route (S4-015).
@@ -266,7 +288,7 @@ Principles observed as consistently applied throughout the codebase, and/or expl
 
 - **Strict type safety.** TypeScript strict mode; zero `any` usage found anywhere in the codebase.
 - **Modular, boundary-enforced architecture.** UI is organized into `features/*` modules with a consistent internal shape (`components/hooks/types/actions/lib`); cross-module dependencies are restricted by an ESLint rule (`import/no-restricted-paths`), not left to convention alone.
-- **Server Actions as the sole backend boundary.** All backend logic — auth, data mutation, AI generation — runs behind `"use server"` Server Actions; client code never calls Supabase or Gemini directly. Client-side stores never call a Server Action, Supabase, or Gemini directly either — that orchestration lives in a feature's `hooks/`/`actions/` layer.
+- **Server Actions as the sole backend boundary.** All backend logic — auth, data mutation, AI generation — runs behind `"use server"` Server Actions; client code never calls Supabase or an AI provider directly. Client-side stores never call a Server Action, Supabase, or an AI provider directly either — that orchestration lives in a feature's `hooks/`/`actions/` layer.
 - **Determinism where correctness matters.** Every schema compiler (`lib/compiler/*`) is a pure function with no network calls, no filesystem access, and no non-deterministic input — the same AST always produces byte-identical output, verified by dedicated determinism tests.
 - **Prefer React Server Components.** Data-fetching page-composition components are async Server Components by default; `"use client"` is applied only where interactivity requires it.
 - **Reusable, generic UI stays generic.** shadcn/ui primitives (`components/ui/*`) and cross-cutting providers are deliberately kept outside the feature-module system rather than owned by any one feature.
@@ -280,39 +302,41 @@ Principles observed as consistently applied throughout the codebase, and/or expl
 
 ## 8. Current Repository Status
 
-As verified at Sprint 4 closure (task S4-017):
+As verified at Sprint 5 closure (task S5-005):
 
 | Check | Status |
 |---|---|
-| Repository health | Healthy — Sprints 0/1/3A established a clean baseline; Sprint 4 shipped 17 tasks on top of it (design tokens through Monaco integration, Workbench chrome, an accessibility audit) with no regressions, verified after every single task, not just at the end |
-| Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 4 |
+| Repository health | Healthy — Sprints 0/1/3A/4 established a clean, verified baseline; Sprint 5 added a 5-task AI provider architecture on top of it (foundation, Anthropic, OpenAI, centralized selection, closure) with no regressions, verified after every single task |
+| Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 5 |
 | TypeScript (`npm run typecheck`) | ✅ Passing — zero errors |
 | Lint (`npm run lint`) | ✅ Passing — zero errors, zero warnings |
-| Tests (`npm test`) | ✅ Passing — 280/280 tests across 33 files |
+| Tests (`npm test`) | ✅ Passing — 329/329 tests across 40 files |
 | Git working tree | Clean relative to `HEAD` — no unintended tracked-file changes |
 | Sprint 0 | ✅ Complete — see `Sprint-00-Recovery.md` |
 | Sprint 1 | ✅ Complete — S1-001 through S1-005 |
 | Sprint 3A | ✅ Complete — spec QA pass over the Sprint 2/3 documentation suite |
 | Sprint 4 | ✅ Complete — S4-001 through S4-017; see `Sprint-04-Closure.md` |
+| Sprint 5 | ✅ Complete — S5-001 through S5-005; see `Sprint-05-Closure.md` |
 
 ---
 
 ## 9. Known Risks
 
-Updated at Sprint 4 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
+Updated at Sprint 5 closure to reflect what was resolved. Remaining items are inputs for future planning, not re-assessed or expanded here:
 
 - ~~Unaddressed self-rated Critical tech debt (TD-003, TD-004)~~ — **Resolved, Sprint 1.**
 - ~~TD-006 (history/navigation)~~ — **Resolved, Sprint 1.**
-- **Documentation/continuity gap around "UX 2.0" — resolved by adoption.** Sprint 4 *is* the UX 2.0 implementation (the design system, product-experience specs, and this roadmap all trace back to that initiative); the gap noted at Sprint 1 closure no longer applies in the same way now that the specs have a concrete, shipped implementation to point to.
-- **No Git↔Vercel auto-deploy integration** (TD-005) — still open, human-gated by design; not part of Sprint 4's scope.
-- **Placeholder/test data visible in the production Supabase account** (TD-015) — still open, requires explicit sign-off before deletion; not part of Sprint 4's scope.
-- **Two prepared-but-not-applied database changes await human sign-off** (new, Sprint 4): a Postgres trigger (S4-009) and a `user_preferences` table (S4-010B) are both written as code (SQL/Drizzle) but deliberately never applied to any live database in this environment — no live Supabase credentials were available, and applying schema changes without explicit review was out of scope for an autonomous implementation pass.
-- **Delete-account is not implemented** (new, Sprint 4) — Account Settings' Account section has no self-service delete-account action. Supabase Auth has no anon-key-callable self-delete method; implementing this needs either a service-role client or a `SECURITY DEFINER` Postgres function, which is an architectural decision deliberately left for explicit human sign-off rather than resolved unilaterally.
-- **Generator Failure Recovery is partially unimplemented** (TD-022, new Sprint 4) — no Retry button exists on a failed generation yet (though the prompt is correctly preserved), and the spec's "partial-streaming failure" behavior is architecturally impossible given the one-atomic-call pipeline. Predates Sprint 4; surfaced by S4-017's journey walkthrough, not introduced by it.
-- **Two Workbench keyboard shortcuts from its own spec table were scoped out of S4-015** (TD-023, new Sprint 4) — `Cmd/Ctrl+1..5` tab-jump and `Cmd/Ctrl+Shift+C` copy-current-tab; the underlying actions remain reachable via mouse/command palette.
-- **Icon-only buttons don't meet the 44×44px touch-target minimum** (TD-020, new Sprint 4) and **Workbench Fullscreen Mode hides chrome instantly rather than with the spec's animated transition** (TD-021, new Sprint 4) — both found and deliberately not rushed during S4-016's accessibility audit; see `TECH_DEBT.md` for why each needs a dedicated follow-up rather than a quick patch.
-- **Contrast (Design System 2.0 §11) was not verified with a real rendering/Lighthouse pass** — the automated accessibility suite added in S4-016 (jest-axe/axe-core) runs in jsdom, which never loads this app's actual compiled stylesheet, so it cannot evaluate real rendered contrast. No authenticated Supabase session was available in this environment for a live browser pass either.
-- **Live browser/interactive verification of S4-015's Workbench chrome (drag-resize + collapse, fullscreen toggle, sessionStorage persistence across a real reload) was not performed** — same root cause (no authenticated session available in this environment); flagged for manual verification before merge in that task's own commit message.
+- **Documentation/continuity gap around "UX 2.0" — resolved by adoption.** Sprint 4 *is* the UX 2.0 implementation; the gap noted at Sprint 1 closure no longer applies now that the specs have a concrete, shipped implementation to point to.
+- **No Git↔Vercel auto-deploy integration** (TD-005) — still open, human-gated by design; unrelated to Sprint 5's scope. Note: `main`'s CI was itself restructured ahead of Sprint 5 (`.github/workflows/ci.yml` → `project_ci.yml`/`project_cd.yml`, plus `next.config.ts` gaining `output: "standalone"`) by work outside this project's own Sprint 4/5 execution — merged in at the start of Sprint 5 (S5-004/S5-005 session), not by any Sprint 5 task itself.
+- **Placeholder/test data visible in the production Supabase account** (TD-015) — still open, requires explicit sign-off before deletion.
+- **Two prepared-but-not-applied database changes await human sign-off** (Sprint 4): a Postgres trigger (S4-009) and a `user_preferences` table (S4-010B) — both written as code (SQL/Drizzle), deliberately never applied to any live database in this environment (no live Supabase credentials available).
+- **Delete-account decision resolved (AD-005), implementation still pending** (updated, Sprint 5). Sprint 4 left this as an open architectural question; **AD-005** (`docs/architecture/AD-005-delete-account.md`, Sprint 5 S5-002) resolved it — hard delete, immediate, no grace period, via a new `SECURITY DEFINER` Postgres function `delete_own_account()` scoped to `auth.uid()`, leaning entirely on the FK cascade chain already in `lib/db/schema.ts` (`profiles` → `projects` → `generations` → `user_preferences`, all `ON DELETE CASCADE`). The SQL, the Server Action, and the Account Settings confirmation UI are not yet built — tracked as its own future task, not resolved by the ADR itself.
+- **Multi-provider AI architecture exists, but only Gemini is usable today** (new, Sprint 5). Anthropic and OpenAI are fully implemented and registered (S5-002/S5-003), and provider selection is centralized (S5-004: explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini) — but no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` has been provisioned in any environment, and no UI or account-level setting exists yet to let a user or operator actually choose a non-default provider. This is expected, not a defect: S5-004's own scope was the selection *mechanism*, not provisioning credentials or building a picker.
+- **Generator Failure Recovery is partially unimplemented** (TD-022, Sprint 4) — no Retry button exists on a failed generation yet (though the prompt is correctly preserved), and the spec's "partial-streaming failure" behavior is architecturally impossible given the one-atomic-call pipeline.
+- **Two Workbench keyboard shortcuts from its own spec table were scoped out of S4-015** (TD-023, Sprint 4) — `Cmd/Ctrl+1..5` tab-jump and `Cmd/Ctrl+Shift+C` copy-current-tab; the underlying actions remain reachable via mouse/command palette.
+- **Icon-only buttons don't meet the 44×44px touch-target minimum** (TD-020, Sprint 4) and **Workbench Fullscreen Mode hides chrome instantly rather than with the spec's animated transition** (TD-021, Sprint 4) — both found and deliberately not rushed during S4-016's accessibility audit.
+- **Contrast (Design System 2.0 §11) was not verified with a real rendering/Lighthouse pass** — the automated accessibility suite added in S4-016 (jest-axe/axe-core) runs in jsdom, which never loads this app's actual compiled stylesheet. No authenticated Supabase session was available in this environment for a live browser pass either.
+- **Live browser/interactive verification of S4-015's Workbench chrome was not performed** — same root cause (no authenticated session available in this environment).
 
 The full, unabridged risk and issue inventory lives in `TECH_DEBT.md`; this section is a summary, not a replacement for it.
 
@@ -341,8 +365,17 @@ The full, unabridged risk and issue inventory lives in `TECH_DEBT.md`; this sect
 - **S4-016** — Micro-interaction/accessibility audit: added this repo's first accessibility-testing tooling (`jest-axe`), found and fixed a real nested-interactive bug and a real product-wide missing `prefers-reduced-motion` media query, and disclosed two remaining gaps (TD-020, TD-021) rather than claiming full coverage.
 - **S4-017** — This closure task: full CI-mirrored validation on the merged state, a code-level walkthrough of every `User-Journey-Maps.md` journey (surfacing and disclosing TD-022 and TD-023), and this document's own sync.
 
-**Known residual gaps, disclosed not hidden:** see §9 above and `TECH_DEBT.md` TD-020 through TD-023, plus the two prepared-but-unapplied database changes and the unresolved delete-account mechanism decision. None of these block Sprint 4's own acceptance criteria; all are scoped as explicit follow-up work.
+**Known residual gaps from Sprint 4, disclosed not hidden:** see `TECH_DEBT.md` TD-020 through TD-023, plus the two prepared-but-unapplied database changes. None blocked Sprint 4's own acceptance criteria; all were scoped as explicit follow-up work — the delete-account item was resolved (as a decision) in Sprint 5, see below.
 
-**Sprint 5 has not begun.** Per this Sprint 4 execution's own standing instructions, no Sprint 5 scope is started or implied by anything in this document.
+**Sprint 5 — AI Provider Architecture: ✅ Complete.** Full detail in `Sprint-05-Closure.md`. Summary:
+- **S5-001** — AI Architecture Foundation: `AIProviderAdapter` interface, provider-agnostic request/response types, an `AIProviderError` class hierarchy, `PromptBuilder`/`ResponseParser` abstractions, a `RetryStrategy` interface with an `ExponentialBackoffRetryStrategy` implementation, and an `AIProviderRegistry` (mirroring `CompilerRegistry`'s own convention) — the existing Gemini integration refactored onto all of it, no new external SDK added yet.
+- **S5-002** — Two things: **AD-005** (`docs/architecture/AD-005-delete-account.md`), resolving the delete-account mechanism decision left open at Sprint 4 closure (hard delete via a `SECURITY DEFINER` function, leaning on the existing FK cascade chain — not yet implemented, a deliberate follow-up); and the **Anthropic provider**, implemented on S5-001's abstractions (structured output via a forced tool call, since Anthropic has no Gemini-equivalent JSON-schema response mode) with zero duplicated logic.
+- **S5-003** — The **OpenAI provider** (structured output via `response_format: json_schema`), plus a real bug found and fixed while implementing it: OpenAI's SDK constructor throws immediately without an API key, unlike Gemini's/Anthropic's — since the registry constructs every registered provider on every generation, this would have crashed every generation in any environment without `OPENAI_API_KEY` set (every environment today). Fixed by making every provider's client lazily-constructed-and-cached, resolved inside `generateAST()` rather than at registration time — an implementation-timing fix, not an architecture change.
+- **S5-004** — Centralized provider selection: a new `resolveAIProvider()` (`lib/ai/provider-resolver.ts`) implementing the accepted routing policy (explicit caller choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback), with `AIProviderRegistry` simplified to a pure name→instance lookup table (its own prior "default provider" tracking removed, since that decision now lives in exactly one place). `generation.service.ts`'s public API stayed backwards compatible throughout.
+- **S5-005** — This closure task: full validation on the merged state, `TECH_DEBT.md`/this document's own sync, and `Sprint-05-Closure.md`.
+
+**Known residual gaps from Sprint 5, disclosed not hidden:** delete-account is a resolved *decision* (AD-005) but still has no implementation; Anthropic/OpenAI are registered but unusable without their API keys provisioned and remain non-default by design; see §9 for the full list. None block Sprint 5's own acceptance criteria.
+
+**Sprint 6 has not begun.** Per this Sprint 5 execution's own standing instructions, no Sprint 6 scope is started or implied by anything in this document.
 
 **Remaining open work (not part of Sprint 1, not newly invented here):** `docs/planning/v0.7.1-roadmap.md` Milestone 4 (Git↔Vercel integration, production data cleanup — human-gated) and the rest of Milestone 5 (native `ENUM` reconsideration, CHECK-constraint prompt guidance, composite FK physical constraints, VARCHAR sizing, CSP headers).
