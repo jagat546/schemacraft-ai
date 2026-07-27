@@ -93,6 +93,26 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // Result intentionally ignored -- see the comment above.
 }
 
+// AD-005: hard delete via the delete_own_account() SECURITY DEFINER
+// function (supabase/rls.sql), scoped to auth.uid() -- deleting the
+// auth.users row cascades to every one of the user's profiles/projects/
+// generations rows in the same transaction, so no separate cleanup is
+// needed here. Signs out globally afterward (defense in depth: the
+// session's JWT could otherwise remain client-side until natural expiry
+// even though the underlying user no longer exists), same as
+// signOutAllSessionsAction above.
+export async function deleteAccountAction(): Promise<AuthActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("delete_own_account")
+
+  if (error) {
+    return { ok: false, error: "Something went wrong deleting your account. Please try again." }
+  }
+
+  await supabase.auth.signOut({ scope: "global" })
+  redirect("/login")
+}
+
 export async function confirmPasswordReset(
   password: string,
   options?: { redirect?: boolean }

@@ -1,6 +1,6 @@
 # AD-005 — Delete Account Implementation Mechanism
 
-**Status:** Proposed. No code changes accompany this record — decision only, per Sprint 5 task S5-002 Phase 1.
+**Status:** Implemented (Sprint 6, S6-003). `public.delete_own_account()` (`supabase/rls.sql`), `deleteAccountAction` (`lib/actions/auth.ts`), and the high-friction confirmation dialog (`features/account-settings/components/account-settings.tsx`) all now exist, exactly per this record's Recommended Implementation section below. The SQL function is still prepared, not applied to any live database (this environment has no Supabase credentials) — the smoke-test verification gap disclosed under Risks remains open until a human runs it against a real, non-production project.
 **Raised by:** S4-010B (Account Settings Part 2), which deliberately left delete-account unimplemented rather than resolve this unilaterally. See `features/account-settings/components/account-settings.tsx`'s own code comment and `TECH_DEBT.md`/`SCHEMACRAFT_AI_MASTER_CONTEXT.md`'s "delete-account implementation mechanism" open item.
 **Consumed by (future):** A dedicated implementation task (recommended: `S5-00X`, sequenced whenever the product wants this shipped — not blocking S5-002's Anthropic provider work, which has no dependency on this decision).
 
@@ -97,8 +97,8 @@ The Server Action wrapping this call should, after a successful RPC/Admin-API re
 3. **`features/account-settings/components/account-settings.tsx`** *(future change)* — replace the current "deliberately not implemented" comment with a real, high-friction confirmation dialog (type the account email, or "delete," to enable the destructive action) calling `deleteAccountAction()`.
 4. **No changes** to `lib/db/schema.ts`, any repository, or any RLS policy on `profiles`/`projects`/`generations`/`user_preferences` — the cascade chain already does everything needed.
 
-None of this is implemented by this ADR. Per this task's own instructions, no production code accompanies this record.
+None of this was implemented by this ADR at the time it was written. Implementation followed later, in Sprint 6 (S6-003) — see Status above.
 
 ---
 
-**Outcome of this record:** Recommend proceeding with **hard delete via a `SECURITY DEFINER` Postgres function (`delete_own_account`, scoped to `auth.uid()`), immediate (no grace period), leaning entirely on the already-existing FK cascade chain.** This decision is straightforward enough to unblock Phase 2 without further user input — it requires no new secrets, no new infrastructure, and no schema changes beyond one new SQL function that is not applied by this ADR. Implementation itself (the SQL, the Server Action, the confirmation UI) is deferred to its own future task, consistent with every other prepared-but-unapplied database change this project has made.
+**Outcome of this record:** Recommended proceeding with **hard delete via a `SECURITY DEFINER` Postgres function (`delete_own_account`, scoped to `auth.uid()`), immediate (no grace period), leaning entirely on the already-existing FK cascade chain.** This decision was straightforward enough to unblock Phase 2 without further user input — it required no new secrets, no new infrastructure, and no schema changes beyond one new SQL function. **Implemented as described, S6-003** — all three files in this section's list now exist, matching this record exactly (no re-litigation of soft-vs-hard-delete or the `SECURITY DEFINER`-vs-service-role choice occurred during implementation).

@@ -237,6 +237,34 @@ $$;
 revoke all on function public.check_authenticated_rate_limit(uuid, integer, integer, integer, integer) from public;
 grant execute on function public.check_authenticated_rate_limit(uuid, integer, integer, integer, integer) to authenticated;
 
+-- delete_own_account (S6-003, per AD-005) -----------------------------------
+-- Executes AD-005's accepted recommendation: hard delete, immediate, no
+-- grace period, via a SECURITY DEFINER function scoped to auth.uid() --
+-- never a caller-supplied ID, which is the entire security property
+-- standing between "delete your own account" and "delete anyone's
+-- account." Every dependent row (profiles, projects, generations,
+-- user_preferences once applied) cascades away in the same statement's
+-- transaction via the existing ON DELETE CASCADE chain -- no separate
+-- per-table cleanup is needed or performed here. Deliberately NOT YET
+-- APPLIED to any live database -- same "prepare but don't apply"
+-- discipline as every other schema-adjacent change in this project, and
+-- AD-005's own explicitly disclosed verification gap: this has not been
+-- smoke-tested against a live Supabase instance in this environment.
+
+drop function if exists public.delete_own_account();
+create function public.delete_own_account() returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_own_account() from public;
+grant execute on function public.delete_own_account() to authenticated;
+
 -- user_preferences (S4-010B) -------------------------------------------------
 -- NOT YET APPLIED -- see lib/db/schema.ts's userPreferences comment. Lazily
 -- created: no row exists until a user saves a preference for the first
