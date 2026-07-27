@@ -240,6 +240,21 @@ Not a bug, but there's no documented internal process for verifying/rotating sec
 
 **What's missing:** direct keystrokes for jumping to code tab N (`Cmd/Ctrl+1..5`) and copying the active tab's content (`Cmd/Ctrl+Shift+C`), both listed in the Workbench spec's own shortcuts table.
 
+## TD-024 — CI/CD pipeline: no automatic trigger, and CD targets a stale/wrong branch
+
+**Where:** `.github/workflows/project_ci.yml`, `.github/workflows/project_cd.yml`, `next.config.ts`
+
+**Priority:** High
+
+**Found during:** Sprint 6's S6-002 audit (`docs/architecture/AD-006-deployment-strategy.md`), performed as an audit-only task since infrastructure/CI-CD files are out of this sprint's application-developer ownership scope.
+
+**What's wrong:**
+1. `project_ci.yml` triggers only on `workflow_dispatch` (manual) — it lost the `push`/`pull_request` triggers its predecessor `ci.yml` had (visible at `git show 170aaddb^:.github/workflows/ci.yml`), so lint/typecheck/test/build do not run automatically on pushes or PRs to `main`.
+2. `project_cd.yml` looks up a CI run via `gh run list --branch develop/chirag`, a branch that does not appear to exist in this repository — the CD workflow cannot currently resolve a valid artifact and is non-functional as written. It also deploys to EC2/PM2, which conflicts with the user's Sprint 6 decision (AD-006) that Vercel is the production platform.
+3. `next.config.ts`'s `output: "standalone"` is an EC2/self-hosted-Node artifact not needed on Vercel; harmless but no longer purposeful.
+
+**Recommended fix (DevOps-owned, not implemented here):** restore automatic `push`/`pull_request` triggers on `project_ci.yml`; remove or archive `project_cd.yml`; confirm/configure Vercel's Git integration (closes TD-005 alongside this); revert `next.config.ts`'s `output: "standalone"`. Full detail in AD-006.
+
 **Why:** S4-015 built the Workbench's fullscreen mode, command-palette route-scoping, prev/next nav, and session persistence, deliberately scoped to that task's own roadmap acceptance criteria — which listed the four command-palette entries ("Jump to generation…," "Toggle ERD panel," "Toggle fullscreen," "Copy [tab] to clipboard") but not these two raw keybindings. The same underlying actions remain reachable today (mouse click on a tab; the command palette's "Copy [tab] to clipboard" entry) — this is a missing keyboard *shortcut*, not a missing feature.
 
 **Recommended fix:** register two more `useKeyboardShortcut` entries in `WorkbenchCommandRegistration` (or a sibling component) — `mod+1` through `mod+5` calling the same `setActiveTab` the tab clicks already use, and `mod+shift+c` calling the same handler the "Copy [tab] to clipboard" command already runs. Small, low-risk, and reuses existing wiring; scoped out of S4-015 for time, not because of any technical blocker.
