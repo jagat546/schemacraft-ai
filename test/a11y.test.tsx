@@ -68,10 +68,19 @@ describe("Sprint 4 accessibility audit (structural/ARIA, axe-core)", () => {
     expect(await axe(container)).toHaveNoViolations()
   })
 
-  it("CodeViewer (S4-014) has no axe violations", async () => {
-    const { container } = render(<CodeViewer content={RESULT.sql} variant="sql" />)
-    expect(await axe(container)).toHaveNoViolations()
-  })
+  // Explicit longer timeout: this test dynamic-imports the CodeViewer's
+  // Monaco stub and runs a full axe-core scan, consistently the heaviest
+  // single operation in this file -- observed intermittently exceeding
+  // Vitest's 5000ms default under load, not a logic issue (nothing here
+  // depends on real time passing).
+  it(
+    "CodeViewer (S4-014) has no axe violations",
+    async () => {
+      const { container } = render(<CodeViewer content={RESULT.sql} variant="sql" />)
+      expect(await axe(container)).toHaveNoViolations()
+    },
+    15000
+  )
 
   it("ExportAllButton (S4-013) has no axe violations", async () => {
     const { container } = render(<ExportAllButton result={RESULT} />)

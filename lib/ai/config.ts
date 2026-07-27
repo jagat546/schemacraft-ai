@@ -26,3 +26,15 @@ export const anthropicConfig = {
   maxTokens: 12288,
   requestTimeoutMs: 30_000,
 } as const
+
+// S5-003: "gpt-4.1" is a confirmed-real, stable OpenAI model identifier
+// -- chosen deliberately over guessing at a newer flagship name this
+// assistant has no reliable confirmation actually exists as a callable
+// API model string. Revisit this choice (mirroring anthropicConfig's own
+// "current flagship" reasoning) once a newer generation is confirmed
+// available, rather than leave it stale indefinitely.
+export const openaiConfig = {
+  model: "gpt-4.1",
+  maxTokens: 12288,
+  requestTimeoutMs: 30_000,
+} as const

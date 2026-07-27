@@ -86,6 +86,21 @@ describe("createAIProviderRegistry", () => {
     expect(registry.resolve().name).toBe("gemini")
   })
 
+  it("registers OpenAI (S5-003) without making it the default", () => {
+    const registry = createAIProviderRegistry()
+    expect(registry.resolve("openai").name).toBe("openai")
+    expect(registry.resolve().name).toBe("gemini")
+  })
+
+  it("constructing the registry never touches OpenAI's client -- registering it must not require OPENAI_API_KEY", () => {
+    // Regression test: OpenAI's SDK constructor throws immediately when no
+    // API key is configured (confirmed directly, unlike Gemini/Anthropic's
+    // constructors). createAIProviderRegistry() registers every provider
+    // on every call; this must never crash just because OPENAI_API_KEY is
+    // unset in this environment (it is, in every environment today).
+    expect(() => createAIProviderRegistry()).not.toThrow()
+  })
+
   it("returns a fresh registry on every call, not a shared singleton", () => {
     const first = createAIProviderRegistry()
     const second = createAIProviderRegistry()

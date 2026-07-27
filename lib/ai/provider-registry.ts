@@ -14,6 +14,7 @@
 import { createAnthropicProvider } from "@/lib/ai/providers/anthropic"
 import { createGeminiProvider } from "@/lib/ai/providers/gemini"
 import type { AIProviderAdapter } from "@/lib/ai/providers/interface"
+import { createOpenAIProvider } from "@/lib/ai/providers/openai"
 
 export class AIProviderRegistry {
   private readonly providers = new Map<string, AIProviderAdapter>()
@@ -66,5 +67,6 @@ export function createAIProviderRegistry(): AIProviderRegistry {
   const registry = new AIProviderRegistry()
   registry.register(createGeminiProvider(), { isDefault: true })
   registry.register(createAnthropicProvider())
+  registry.register(createOpenAIProvider())
   return registry
 }

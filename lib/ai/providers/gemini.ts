@@ -1,9 +1,9 @@
 import "server-only"
 
-import { ApiError, type GenerateContentResponse } from "@google/genai"
+import { ApiError, type GenerateContentResponse, type GoogleGenAI } from "@google/genai"
 import { z } from "zod"
 
-import { genAI } from "@/lib/ai/client"
+import { getGenAIClient } from "@/lib/ai/client"
 import { aiConfig } from "@/lib/ai/config"
 import { AIAuthenticationError, AIRateLimitError, AITimeoutError, AIUnknownError } from "@/lib/ai/errors"
 import { geminiPromptBuilder, type GeminiPrompt } from "@/lib/ai/providers/gemini-prompts"
@@ -23,8 +23,8 @@ import type { AIGenerationRequest, AIGenerationResponse } from "@/lib/ai/types"
  * this module exporting a single hard-wired singleton.
  */
 export interface GeminiProviderDependencies {
-  /** Defaults to the shared `genAI` client (`lib/ai/client.ts`). */
-  client?: typeof genAI
+  /** Defaults to `getGenAIClient()`'s lazily-constructed client (`lib/ai/client.ts`). */
+  client?: GoogleGenAI
   /** Defaults to `aiConfig` (`lib/ai/config.ts`). */
   config?: typeof aiConfig
   /** Defaults to {@link geminiPromptBuilder}. */
@@ -55,7 +55,6 @@ function delay(ms: number): Promise<void> {
  * are compiler concerns (`lib/compiler`), not this provider's.
  */
 export function createGeminiProvider(deps: GeminiProviderDependencies = {}): AIProviderAdapter {
-  const client = deps.client ?? genAI
   const config = deps.config ?? aiConfig
   const promptBuilder = deps.promptBuilder ?? geminiPromptBuilder
   const responseParser = deps.responseParser ?? geminiResponseParser
@@ -65,6 +64,11 @@ export function createGeminiProvider(deps: GeminiProviderDependencies = {}): AIP
     name: AIProviderName.Gemini,
 
     async generateAST(request: AIGenerationRequest): Promise<AIGenerationResponse> {
+      // Resolved here, not above: constructing the real client validates
+      // credentials for some SDKs (see lib/ai/client.ts's own comment) --
+      // this must only happen once a generation actually runs through
+      // this specific provider, never merely because it was registered.
+      const client = deps.client ?? getGenAIClient()
       const prompt = promptBuilder.build(request)
 
       let attempt = 0

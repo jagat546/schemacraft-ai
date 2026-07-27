@@ -1,6 +1,6 @@
 import "server-only"
 
-import {
+import Anthropic, {
   APIConnectionTimeoutError,
   APIError,
   APIUserAbortError,
@@ -10,7 +10,7 @@ import {
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages"
 import { z } from "zod"
 
-import { anthropicClient } from "@/lib/ai/client"
+import { getAnthropicClient } from "@/lib/ai/client"
 import { anthropicConfig } from "@/lib/ai/config"
 import { AIAuthenticationError, AIRateLimitError, AITimeoutError, AIUnknownError } from "@/lib/ai/errors"
 import { anthropicResponseParser, ANTHROPIC_AST_TOOL_NAME } from "@/lib/ai/providers/anthropic-parser"
@@ -28,7 +28,8 @@ import { canonicalSchemaASTSchema } from "@/lib/ast/schema"
  * than inventing a parallel convention.
  */
 export interface AnthropicProviderDependencies {
-  client?: typeof anthropicClient
+  /** Defaults to `getAnthropicClient()`'s lazily-constructed client (`lib/ai/client.ts`). */
+  client?: Anthropic
   config?: typeof anthropicConfig
   promptBuilder?: PromptBuilder<AnthropicPrompt>
   responseParser?: ResponseParser<Message>
@@ -66,7 +67,6 @@ function delay(ms: number): Promise<void> {
 export function createAnthropicProvider(
   deps: AnthropicProviderDependencies = {}
 ): AIProviderAdapter {
-  const client = deps.client ?? anthropicClient
   const config = deps.config ?? anthropicConfig
   const promptBuilder = deps.promptBuilder ?? anthropicPromptBuilder
   const responseParser = deps.responseParser ?? anthropicResponseParser
@@ -76,6 +76,11 @@ export function createAnthropicProvider(
     name: AIProviderName.Anthropic,
 
     async generateAST(request: AIGenerationRequest): Promise<AIGenerationResponse> {
+      // Resolved here, not above -- see lib/ai/client.ts's comment on why
+      // client construction must be deferred to actual use, not factory
+      // construction (which happens for every registered provider on
+      // every generation, per AIProviderRegistry).
+      const client = deps.client ?? getAnthropicClient()
       const prompt = promptBuilder.build(request)
 
       let attempt = 0
