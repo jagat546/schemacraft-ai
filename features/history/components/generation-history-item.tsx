@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { Code2Icon, Trash2Icon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Code2Icon, PencilIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useDeleteGeneration } from "@/features/history/hooks/use-delete-generation"
+import { useGenerationStore } from "@/lib/stores/generation-store"
 import type { Generation } from "@/lib/repositories/generation.repository"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +32,18 @@ export function GenerationHistoryItem({
     generationId: generation.id,
     projectId,
   })
+  const router = useRouter()
+  const setPrompt = useGenerationStore((store) => store.setPrompt)
+
+  // S7-002: reuses the exact carry-a-prompt-forward pattern
+  // OnboardingCard (S6-007) already established -- set the shared
+  // generation-store's prompt, then navigate to the Generator, rather
+  // than inventing a query-param or prop-drilling mechanism for the same
+  // data.
+  function handleEditAndRegenerate() {
+    setPrompt(generation.prompt)
+    router.push("/dashboard/generator")
+  }
 
   const createdAt = new Date(generation.createdAt).toLocaleDateString(undefined, {
     dateStyle: "medium",
@@ -57,6 +71,10 @@ export function GenerationHistoryItem({
           >
             <Code2Icon />
             Open
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleEditAndRegenerate}>
+            <PencilIcon />
+            Edit & Regenerate
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger
