@@ -3,6 +3,7 @@
 import { z } from "zod"
 
 import { getSessionResult } from "@/lib/auth/session-result"
+import { dismissOnboarding } from "@/lib/onboarding/dismissed-cookie"
 import { checkAuthenticatedGenerationRateLimit } from "@/lib/repositories/rate-limit.repository"
 import {
   generateAndPersistSchema,
@@ -59,5 +60,14 @@ export async function generateSchema(
     }
   }
 
-  return generateAndPersistSchema(parsed.data)
+  const result = await generateAndPersistSchema(parsed.data)
+
+  // S6-007: a schema was actually produced (whether or not it persisted),
+  // so the Dashboard's onboarding card has served its purpose -- hide it
+  // permanently, the same way it hides on an explicit dismiss.
+  if (result.status === "SUCCESS" || result.status === "GENERATED_NOT_SAVED") {
+    await dismissOnboarding()
+  }
+
+  return result
 }
