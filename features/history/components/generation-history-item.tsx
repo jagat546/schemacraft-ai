@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { useDeleteGeneration } from "@/features/history/hooks/use-delete-generation"
 import { useGenerationStore } from "@/lib/stores/generation-store"
+import { useProjectStore } from "@/lib/stores/project-store"
 import type { Generation } from "@/lib/repositories/generation.repository"
 import { cn } from "@/lib/utils"
 
@@ -34,14 +35,21 @@ export function GenerationHistoryItem({
   })
   const router = useRouter()
   const setPrompt = useGenerationStore((store) => store.setPrompt)
+  const selectProject = useProjectStore((store) => store.selectProject)
 
   // S7-002: reuses the exact carry-a-prompt-forward pattern
   // OnboardingCard (S6-007) already established -- set the shared
   // generation-store's prompt, then navigate to the Generator, rather
   // than inventing a query-param or prop-drilling mechanism for the same
-  // data.
+  // data. Also syncs project-store's selection to this generation's own
+  // project: that store persists across the whole client session and is
+  // never otherwise updated by History, so without this, the Generator
+  // could land on whatever project was previously selected -- a
+  // different one than the generation being edited -- and silently save
+  // the new version under the wrong project.
   function handleEditAndRegenerate() {
     setPrompt(generation.prompt)
+    selectProject(projectId)
     router.push("/dashboard/generator")
   }
 
