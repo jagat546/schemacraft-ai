@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { Loader2, Lock, Mail, Sparkles, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { signUp } from "@/lib/actions/auth"
@@ -15,49 +16,130 @@ export function SignupForm() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
     setError(null)
+
     startTransition(async () => {
       const outcome = await signUp(email, password)
+
       if (!outcome.ok) {
         setError(outcome.error)
         toast.error(outcome.error)
+        return
       }
+
+      toast.success("Account created successfully 🎉")
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
+    <div className="w-full rounded-3xl border border-violet-200 bg-white p-8 shadow-2xl">
+
+      <div className="mb-8 text-center">
+
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
+
+          <UserPlus className="h-8 w-8 text-white" />
+
+        </div>
+
+        <h2 className="text-3xl font-bold text-violet-900">
+          Create Account
+        </h2>
+
+        <p className="mt-2 text-violet-600">
+          Join SchemaCraft AI and start generating database schemas with AI.
+        </p>
+
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-sm font-medium">
-          Password
-        </label>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={6}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Creating account…" : "Create account"}
-      </Button>
-    </form>
+
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
+
+        <div>
+
+          <label
+            htmlFor="email"
+            className="mb-2 block text-sm font-semibold text-violet-900"
+          >
+            Email Address
+          </label>
+
+          <div className="relative">
+
+            <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-violet-400" />
+
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="h-12 rounded-xl border-violet-200 pl-12 focus:border-violet-500"
+            />
+
+          </div>
+
+        </div>
+
+        <div>
+
+          <label
+            htmlFor="password"
+            className="mb-2 block text-sm font-semibold text-violet-900"
+          >
+            Password
+          </label>
+
+          <div className="relative">
+
+            <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-violet-400" />
+
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Minimum 6 characters"
+              className="h-12 rounded-xl border-violet-200 pl-12 focus:border-violet-500"
+            />
+
+          </div>
+
+        </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="h-12 w-full rounded-xl text-base font-semibold"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Creating Account...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-5 w-5" />
+              Create Account
+            </>
+          )}
+        </Button>
+
+      </form>
+    </div>
   )
 }

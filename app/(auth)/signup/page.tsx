@@ -1,30 +1,30 @@
 import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
 
 import { SignupForm } from "@/components/auth/signup-form"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 
 export default function SignupPage() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create an account</CardTitle>
-        <CardDescription>Get started with SchemaCraft AI.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <SignupForm />
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
-            Sign in
-          </Link>
+    <div className="space-y-6">
+
+      <SignupForm />
+
+      <div className="rounded-2xl border border-violet-200 bg-white/70 p-5 text-center shadow-lg backdrop-blur">
+
+        <p className="text-sm text-violet-600">
+          Already have an account?
         </p>
-      </CardContent>
-    </Card>
+
+        <Link
+          href="/login"
+          className="mt-3 inline-flex items-center gap-2 font-semibold text-violet-700 transition hover:text-violet-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Sign In
+        </Link>
+
+      </div>
+
+    </div>
   )
 }
