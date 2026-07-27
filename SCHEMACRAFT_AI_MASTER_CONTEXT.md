@@ -47,7 +47,7 @@ Only technologies with confirmed, current implementation usage are listed.
 | Zip bundling | `fflate` (S4-013) | `features/ai-workspace/lib/export-bundle.ts` — client-side "Export all" zip of all five artifacts |
 | Markdown rendering | `react-markdown` + `remark-gfm` | `features/workbench/components/markdown-viewer.tsx` |
 | Command palette | `cmdk` | `features/shell/components/command-palette.tsx`; gained a generic, route-scoped command registry (`command-registry-provider.tsx`, S4-015) on top of the existing static command list |
-| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (360 tests, 50 files, two-project config: `node` + `jsdom`-backed `dom`) |
+| Testing | Vitest | `test/`, `**/*.test.ts`/`**/*.test.tsx` (362 tests, 50 files, two-project config: `node` + `jsdom`-backed `dom`) |
 | Accessibility testing | `jest-axe` (axe-core, S4-016) | `vitest.setup.dom.ts` (matcher registration), `test/a11y.test.tsx` — structural/ARIA checks only; color-contrast is not evaluated in jsdom (no compiled stylesheet loaded into these unit tests) |
 | CI/CD | GitHub Actions | `.github/workflows/project_ci.yml` / `project_cd.yml` — unchanged by Sprint 6 (CI/CD is DevOps-owned, out of this sprint's application-developer scope; see AD-006/TD-024). `project_ci.yml` still triggers only on `workflow_dispatch` (no automatic push/PR verification), and `project_cd.yml` is non-functional as written (targets a stale `develop/chirag` branch filter) and conflicts with Vercel as the confirmed production platform. Audited and documented, not fixed, this sprint. |
 | Hosting | Vercel | `.vercel/project.json`; confirmed as the approved production platform (S6-002/AD-006). Deploys currently manual (`vercel --prod`) — no Git↔Vercel auto-deploy integration is configured (TD-005, still open, DevOps-owned) |
@@ -343,7 +343,7 @@ As verified at Sprint 7 closure (task S7-004):
 | Build (`npm run build`) | ✅ Passing — compiles successfully (Turbopack), all 12 routes generated, static/dynamic split unchanged from before Sprint 7 |
 | TypeScript (`npm run typecheck`) | ✅ Passing — zero errors |
 | Lint (`npm run lint`) | ✅ Passing — zero errors, zero warnings |
-| Tests (`npm test`) | ✅ Passing — 360/360 tests across 50 files |
+| Tests (`npm test`) | ✅ Passing — 362/362 tests across 50 files |
 | Git working tree | Clean relative to `HEAD` — no unintended tracked-file changes |
 | Sprint 0 | ✅ Complete — see `Sprint-00-Recovery.md` |
 | Sprint 1 | ✅ Complete — S1-001 through S1-005 |
