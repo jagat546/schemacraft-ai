@@ -2,7 +2,7 @@ import "server-only"
 
 import { analyzeSchema, type AnalysisError } from "@/lib/ast/analyzer"
 import { validateASTShape } from "@/lib/ast/validator"
-import { createAIProviderRegistry } from "@/lib/ai/provider-registry"
+import { resolveAIProvider } from "@/lib/ai/provider-resolver"
 import type { AIProviderAdapter } from "@/lib/ai/providers/interface"
 import { createCompilerRegistry, CompilerId, type CompileAllResult } from "@/lib/compiler"
 import { createGeneration } from "@/lib/repositories/generation.repository"
@@ -10,16 +10,25 @@ import { getProjectById } from "@/lib/repositories/project.repository"
 import type { GeneratedSchema } from "@/types/schema"
 
 /**
- * Dependency-injection seam (S5-001): every exported function below
- * accepts an optional `provider`, defaulting to `createAIProviderRegistry()`'s
- * default (Gemini today). Existing callers
- * (`lib/actions/generate-schema.ts`, `lib/actions/generate-schema-public.ts`)
- * need no changes — they never pass this option — while a test, or a
- * future caller that wants a specific provider, can inject one directly
- * instead of this module hard-importing a concrete implementation.
+ * Dependency-injection seam (S5-001, extended S5-004): every exported
+ * function below resolves its provider through two optional,
+ * backwards-compatible seams, highest priority first:
+ *
+ * 1. `provider` — a concrete `AIProviderAdapter` instance, injected
+ *    directly (bypasses selection entirely). The original S5-001 escape
+ *    hatch, unchanged — mainly for tests.
+ * 2. `providerName` — an explicit provider identifier (S5-004), resolved
+ *    via `resolveAIProvider()`'s routing rules (explicit name ->
+ *    `DEFAULT_AI_PROVIDER` env var -> Gemini).
+ *
+ * Existing callers (`lib/actions/generate-schema.ts`,
+ * `lib/actions/generate-schema-public.ts`) pass neither and need no
+ * changes — they get whatever `resolveAIProvider()`'s own fallback chain
+ * resolves to (Gemini, absent a `DEFAULT_AI_PROVIDER` override).
  */
 export interface GenerationServiceDependencies {
   provider?: AIProviderAdapter
+  providerName?: string
 }
 
 // The public contract is unchanged from the legacy Gemini-direct-artifact
@@ -57,7 +66,7 @@ export async function generateSchemaArtifacts(
   input: { prompt: string },
   deps: GenerationServiceDependencies = {}
 ): Promise<GenerateArtifactsResult> {
-  const provider = deps.provider ?? createAIProviderRegistry().resolve()
+  const provider = deps.provider ?? resolveAIProvider({ providerName: deps.providerName })
   const generationResult = await provider.generateAST({ prompt: input.prompt })
   if (!generationResult.ok) {
     return { status: "AI_ERROR", error: generationResult.error.message }

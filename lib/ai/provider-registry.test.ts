@@ -21,24 +21,6 @@ describe("AIProviderRegistry", () => {
     expect(registry.resolve("test-provider")).toBe(provider)
   })
 
-  it("the first registered provider becomes the default, resolved when no name is given", () => {
-    const registry = new AIProviderRegistry()
-    const first = fakeProvider("first")
-    registry.register(first)
-    registry.register(fakeProvider("second"))
-
-    expect(registry.resolve()).toBe(first)
-  })
-
-  it("a later registration can override the default via isDefault", () => {
-    const registry = new AIProviderRegistry()
-    registry.register(fakeProvider("first"))
-    const second = fakeProvider("second")
-    registry.register(second, { isDefault: true })
-
-    expect(registry.resolve()).toBe(second)
-  })
-
   it("throws when registering two providers with the same name", () => {
     const registry = new AIProviderRegistry()
     registry.register(fakeProvider("dup"))
@@ -57,11 +39,6 @@ describe("AIProviderRegistry", () => {
     )
   })
 
-  it("throws when resolving the default on an empty registry", () => {
-    const registry = new AIProviderRegistry()
-    expect(() => registry.resolve()).toThrow("No AI provider is registered.")
-  })
-
   it("list() returns every registered provider", () => {
     const registry = new AIProviderRegistry()
     const first = fakeProvider("first")
@@ -74,22 +51,11 @@ describe("AIProviderRegistry", () => {
 })
 
 describe("createAIProviderRegistry", () => {
-  it("registers Gemini as the default provider", () => {
+  it("registers Gemini, Anthropic, and OpenAI, all resolvable by name", () => {
     const registry = createAIProviderRegistry()
-    expect(registry.resolve().name).toBe("gemini")
     expect(registry.resolve("gemini").name).toBe("gemini")
-  })
-
-  it("registers Anthropic (S5-002) without making it the default", () => {
-    const registry = createAIProviderRegistry()
     expect(registry.resolve("anthropic").name).toBe("anthropic")
-    expect(registry.resolve().name).toBe("gemini")
-  })
-
-  it("registers OpenAI (S5-003) without making it the default", () => {
-    const registry = createAIProviderRegistry()
     expect(registry.resolve("openai").name).toBe("openai")
-    expect(registry.resolve().name).toBe("gemini")
   })
 
   it("constructing the registry never touches OpenAI's client -- registering it must not require OPENAI_API_KEY", () => {
