@@ -41,7 +41,10 @@ export function OutputActions({
 
   return (
     <TooltipProvider>
-      <div className="flex items-center gap-1">
+      {/* gap-2, not gap-1: these are icon-only buttons with a 44px hit-slop
+          (S6-006) -- a wider gap reduces overlap between adjacent hit
+          areas, staying on Design-System-2.0.md §4's spacing scale. */}
+      <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger
             render={

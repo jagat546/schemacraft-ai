@@ -57,10 +57,12 @@
 | **Goals** | Operate the entire product without touching the mouse; manage many projects/generations efficiently; get IDE-grade tooling when reviewing complex schemas. |
 | **Pain points** | Any action that has a keyboard-accessible *label* but not a keyboard-accessible *shortcut*; a code viewer that can't be searched, only scrolled. |
 | **Emotional state** | Efficiency-focused, notices and is bothered by friction others might not — this persona is the backend-engineer audience named explicitly in `CLAUDE.md`. |
-| **System response** | `Navigation-Experience-Specification.md` §Keyboard Navigation (full palette-driven navigation), `Generator-Experience-Specification.md` §Prompt Editor keyboard shortcuts (`Cmd/Ctrl+Enter` to submit), `Workbench-Experience-Specification.md` §Monaco Integration + §Keyboard Shortcuts (real find widget, tab-jump shortcuts, minimap). |
-| **Expected outcome** | A power user can create a project, generate a schema, review it in the Workbench, and export it, start to finish, without leaving the keyboard once they know the shortcut set (documented and discoverable via Account Settings §Keyboard Shortcuts, `Dashboard-Experience-Specification.md`). |
+| **System response** | `Navigation-Experience-Specification.md` §Keyboard Navigation (full palette-driven navigation), `Generator-Experience-Specification.md` §Prompt Editor keyboard shortcuts (`Cmd/Ctrl+Enter` to submit), `Workbench-Experience-Specification.md` §Monaco Integration + §Keyboard Shortcuts (real find widget, minimap; see note below on the tab-jump/copy shortcuts specifically). |
+| **Expected outcome** | A power user can create a project, generate a schema, review it in the Workbench, and export it, start to finish, without leaving the keyboard once they know the shortcut set (documented and discoverable via Account Settings §Keyboard Shortcuts, `Dashboard-Experience-Specification.md`) — with the two exceptions noted below. |
 
-**Step-by-step:** `Cmd/Ctrl+K` → "New Project" → name it (Enter) → auto-routed to Generator → type prompt → `Cmd/Ctrl+Enter` → watch streamed tabs complete → `Cmd/Ctrl+1..5` to jump between artifacts as they land → open Workbench via palette command → `Cmd/Ctrl+F` to search the generated SQL for a specific table name → `Cmd/Ctrl+Shift+C` to copy it.
+**Step-by-step:** `Cmd/Ctrl+K` → "New Project" → name it (Enter) → auto-routed to Generator → type prompt → `Cmd/Ctrl+Enter` → watch the staged reveal complete → click a tab to review an artifact → open Workbench via palette command ("Jump to generation…") → `Cmd/Ctrl+F` to search the generated SQL for a specific table name → use the command palette's "Copy [tab] to clipboard" entry to copy it.
+
+**Implementation note (S4-017 closure audit):** `Workbench-Experience-Specification.md`'s keyboard shortcuts table also lists direct `Cmd/Ctrl+1..5` tab-jump and `Cmd/Ctrl+Shift+C` copy-current-tab bindings. S4-015 (which built the Workbench's other keyboard/command-palette infrastructure) scoped those two specific global bindings out to stay within its own roadmap acceptance criteria — the same actions remain reachable today via mouse (tab click) and the command palette's "Copy [tab] to clipboard" entry, just not via a dedicated keystroke. Tracked as `TECH_DEBT.md` TD-023.
 
 ---
 
@@ -71,10 +73,10 @@
 | **Goals** | Understand *why* it failed and get back to a working state without re-doing work. |
 | **Pain points** | Losing a carefully-written prompt on failure; a generic "Something went wrong" with no path forward. |
 | **Emotional state** | Frustrated, and — because this is an AI product — primed to distrust the whole tool if the failure feels opaque or arbitrary. This is the highest-stakes emotional moment in the product for trust preservation. |
-| **System response** | `Generator-Experience-Specification.md` §Failure Recovery: prompt text is never cleared; the failure reason is shown specifically where known (rate limit, length, model error); a Retry button resubmits without retyping. `Error-Experience.md` governs the messaging pattern in full. |
-| **Expected outcome** | The user's prompt is still there, the reason is legible, and recovery is one click away — a failed generation costs the user time, never their work. |
+| **System response** | `Generator-Experience-Specification.md` §Failure Recovery: prompt text is never cleared — verified, `generation-store.ts`'s `fail()` action only ever touches `state`. A dedicated Retry action now resubmits that preserved prompt directly (S6-001, closes `TECH_DEBT.md` TD-022). The journey's original step-by-step also described partial-artifact recovery, which was never built and never will be — corrected below to what the product actually does. |
+| **Expected outcome** | The user's prompt is still there, the reason is legible, and a single Retry click resubmits it without retyping or re-navigating. |
 
-**Step-by-step:** submit a prompt → generation fails partway (say, after SQL and Drizzle stream in but JSON generation errors) → completed artifacts (SQL, Drizzle) remain visible and usable, per `Generator-Experience-Specification.md` §Failure Recovery's partial-streaming-failure rule → the JSON tab shows an inline error state with a Retry scoped to just the failed remainder → user clicks Retry → succeeds → no re-typing occurred anywhere in this journey.
+**Step-by-step (as shipped):** submit a prompt → generation fails (the single AI call + compile step is all-or-nothing — there is no partial SQL/Drizzle-succeeded-but-JSON-failed state, per §Streaming Generation's own architecture note) → `GenerationStatus` shows the failure reason with a **Retry** action, prompt text still intact in the editor → user clicks Retry (or edits the prompt first, then Generate) → succeeds.
 
 ---
 

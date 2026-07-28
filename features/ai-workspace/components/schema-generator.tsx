@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/select"
 import { GenerationStatus } from "@/features/compiler/components/generation-status"
 import { PromptEditor } from "@/features/ai-workspace/components/prompt-editor"
+import { StagedOutputReveal } from "@/features/ai-workspace/components/staged-output-reveal"
 import { useGenerateSchema } from "@/features/ai-workspace/hooks/use-generate-schema"
-import { OutputTabs } from "@/features/workbench/components/output-tabs"
 import type { Project } from "@/lib/repositories/project.repository"
 import { useProjectSelection } from "@/lib/stores/use-project-selection"
 
@@ -78,8 +78,10 @@ export function SchemaGenerator({ projects }: { projects: Project[] }) {
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
       />
-      <GenerationStatus />
-      {state.status === "success" && <OutputTabs result={state.data} />}
+      <GenerationStatus onRetry={handleGenerate} />
+      {state.status === "success" && (
+        <StagedOutputReveal key={state.data.sql} result={state.data} />
+      )}
     </div>
   )
 }

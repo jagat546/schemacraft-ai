@@ -1,6 +1,9 @@
 import { BracesIcon, DatabaseIcon, FileTextIcon, TableIcon, WaypointsIcon } from "lucide-react"
 
-const OUTPUTS = [
+// Exported so VisualPipeline (S4-007) reuses the exact same icon set --
+// Design System 2.0 §9: nav/feature icons must mean the same thing
+// everywhere, not a second, independently-drifting list.
+export const OUTPUTS = [
   {
     icon: DatabaseIcon,
     title: "SQL Schema",

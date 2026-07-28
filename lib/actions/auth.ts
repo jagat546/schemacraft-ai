@@ -3,6 +3,7 @@
 import type { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 
+import { getSafeRedirectPath } from "@/lib/auth/safe-redirect"
 import { createClient } from "@/lib/supabase/server"
 
 export type AuthActionResult =
@@ -47,7 +48,11 @@ export async function signUp(email: string, password: string): Promise<AuthActio
   redirect("/dashboard")
 }
 
-export async function signIn(email: string, password: string): Promise<AuthActionResult> {
+export async function signIn(
+  email: string,
+  password: string,
+  next?: string | null
+): Promise<AuthActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
@@ -55,11 +60,78 @@ export async function signIn(email: string, password: string): Promise<AuthActio
     return { ok: false, error: mapAuthError(error) }
   }
 
-  redirect("/dashboard")
+  redirect(getSafeRedirectPath(next) ?? "/dashboard")
 }
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect("/login")
+}
+
+// scope: "global" revokes every refresh token for this user, not just the
+// current session's -- the existing signOut() above only ever signs out
+// the browser session that called it.
+export async function signOutAllSessionsAction(): Promise<void> {
+  const supabase = await createClient()
+  await supabase.auth.signOut({ scope: "global" })
+  redirect("/login")
+}
+
+// Deliberately never differentiates "no account for this email" from any
+// other failure (rate limiting, transient send failure, ...): the response
+// is the same regardless, so this action can't be used to enumerate which
+// emails have accounts (Navigation-Experience-Specification.md
+// §Password Reset — Step 1 Request).
+export async function requestPasswordReset(email: string): Promise<void> {
+  const supabase = await createClient()
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/reset-password/confirm`,
+  })
+  // Result intentionally ignored -- see the comment above.
+}
+
+// AD-005: hard delete via the delete_own_account() SECURITY DEFINER
+// function (supabase/rls.sql), scoped to auth.uid() -- deleting the
+// auth.users row cascades to every one of the user's profiles/projects/
+// generations rows in the same transaction, so no separate cleanup is
+// needed here. Signs out globally afterward (defense in depth: the
+// session's JWT could otherwise remain client-side until natural expiry
+// even though the underlying user no longer exists), same as
+// signOutAllSessionsAction above.
+export async function deleteAccountAction(): Promise<AuthActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("delete_own_account")
+
+  if (error) {
+    return { ok: false, error: "Something went wrong deleting your account. Please try again." }
+  }
+
+  await supabase.auth.signOut({ scope: "global" })
+  redirect("/login")
+}
+
+export async function confirmPasswordReset(
+  password: string,
+  options?: { redirect?: boolean }
+): Promise<AuthActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    return { ok: false, error: mapAuthError(error) }
+  }
+
+  // Reused as-is by Account Settings' password-change form (S4-010B),
+  // where redirecting to /dashboard after a routine change would yank the
+  // user away from the page they were already on -- redirect: false keeps
+  // today's exact "just landed via the reset-confirm link" behavior as
+  // the default.
+  if (options?.redirect === false) {
+    return { ok: true }
+  }
+
+  redirect("/dashboard")
 }

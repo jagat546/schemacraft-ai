@@ -319,6 +319,32 @@ describe("postgresSqlCompiler", () => {
       )
     })
 
+    it("uses maxLength for VARCHAR width when set, and 255 when unset (S6-005)", () => {
+      const ast = buildAst([
+        {
+          name: "products",
+          columns: [
+            { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+            { name: "slug", type: "string", nullable: false, unique: false, primaryKey: false, maxLength: 50 },
+            { name: "name", type: "string", nullable: false, unique: false, primaryKey: false },
+          ],
+        },
+      ])
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "products" (',
+          '  "id" INTEGER NOT NULL,',
+          '  "slug" VARCHAR(50) NOT NULL,',
+          '  "name" VARCHAR(255) NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+        ].join("\n")
+      )
+    })
+
     it("renders CREATE UNIQUE INDEX when the index is marked unique", () => {
       const ast = buildAst([
         {

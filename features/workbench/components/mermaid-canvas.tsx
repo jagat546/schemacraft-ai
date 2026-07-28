@@ -27,7 +27,10 @@ function ZoomControls() {
 
   return (
     <TooltipProvider>
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border bg-background/90 p-1 shadow-sm backdrop-blur-xs">
+      {/* gap-2, not gap-1: these are icon-only buttons with a 44px hit-slop
+          (S6-006) -- a wider gap reduces overlap between adjacent hit
+          areas. */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-2 rounded-md border bg-background/90 p-1 shadow-sm backdrop-blur-xs">
         <Tooltip>
           <TooltipTrigger
             render={

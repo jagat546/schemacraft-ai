@@ -275,6 +275,33 @@ describe("drizzleCompiler", () => {
     )
   })
 
+  it("uses maxLength for varchar length when set, and 255 when unset (S6-005)", () => {
+    const ast = buildAst([
+      {
+        name: "products",
+        columns: [
+          { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+          { name: "slug", type: "string", nullable: false, unique: false, primaryKey: false, maxLength: 50 },
+          { name: "name", type: "string", nullable: false, unique: false, primaryKey: false },
+        ],
+      },
+    ])
+    const result = drizzleCompiler.compile(ast)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.output).toBe(
+      [
+        'import { integer, pgTable, varchar } from "drizzle-orm/pg-core"',
+        "",
+        'export const products = pgTable("products", {',
+        '  id: integer("id").primaryKey(),',
+        '  slug: varchar("slug", { length: 50 }).notNull(),',
+        '  name: varchar("name", { length: 255 }).notNull(),',
+        "})",
+      ].join("\n")
+    )
+  })
+
   it("gives composite (multi-column) relationships a relations() entry only, no physical .references()", () => {
     const ast = buildAst(
       [

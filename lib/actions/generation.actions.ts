@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/require-user"
 import {
   deleteGeneration,
   getGeneration,
+  getGenerationCountsByProject,
   getProjectGenerations,
   type Generation,
 } from "@/lib/repositories/generation.repository"
@@ -53,6 +54,14 @@ export async function getProjectGenerationsAction(input: {
   }
 
   return getProjectGenerations(parsed.data.projectId)
+}
+
+export async function getGenerationCountsByProjectAction(): Promise<
+  RepositoryResult<Record<string, number>>
+> {
+  await requireUser()
+
+  return getGenerationCountsByProject()
 }
 
 export async function deleteGenerationAction(input: {

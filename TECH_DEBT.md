@@ -86,21 +86,21 @@ Deliberate v1 scope cut, documented at the time. Means no DB-level enum type reu
 
 Documented scope cut — a physical constraint needs topological table ordering to do safely. Currently silent: the generated Drizzle model gets a `relations()` entry only, with no warning surfaced to the user that this happened.
 
-## TD-009 — Blanket `VARCHAR(255)` for every "string" column
+## TD-009 — Blanket `VARCHAR(255)` for every "string" column — RESOLVED
 
-**Where:** `lib/compiler/sql/type-map.ts`
+**Where:** `lib/compiler/sql/type-map.ts`, `lib/compiler/drizzle/type-map.ts`, `lib/ast/schema.ts`
 
-**Priority:** Low
+**Priority:** was Low, now closed
 
-`email`, `slug`, `password_hash` all get the same arbitrary width in generated schemas regardless of real-world sizing.
+**Fix (Sprint 6, S6-005):** `ColumnNode` gained an optional `maxLength` field (only meaningful for `type: "string"`); both compilers now render `VARCHAR(${maxLength ?? 255})`/`varchar(name, { length: maxLength ?? 255 })`, preserving the existing 255 default whenever it's unset so no existing output changes. `lib/ai/ast-prompt-instructions.ts` now guides every provider to set a realistic `maxLength` (short identifier-like columns get a small width, display names a mid-size width, and genuinely long free text should use `type: "text"` instead of a large `maxLength`) rather than leaving every string column at one arbitrary width.
 
-## TD-010 — No business-rule `CHECK` constraints beyond enum values
+## TD-010 — No business-rule `CHECK` constraints beyond enum values — RESOLVED
 
-**Where:** `lib/ai/providers/gemini-prompts.ts` + `lib/ast/analyzer.ts`
+**Where:** `lib/ai/ast-prompt-instructions.ts`
 
-**Priority:** Medium
+**Priority:** was Medium, now closed
 
-Nothing like `price >= 0` gets generated even when obviously implied by the prompt.
+**Fix (Sprint 6, S6-005):** the AST and both compilers already fully supported table-level `check` constraints (`lib/ast/schema.ts`'s `tableConstraintNodeSchema`, rendered by `lib/compiler/sql/render-table.ts` and `lib/compiler/drizzle/render-table.ts`) — the gap was purely in prompt guidance. `buildSharedAstInstructions()` now tells every provider to add a non-negative `check` constraint for numeric columns unambiguously representing a price, amount, quantity, or age, while explicitly not inventing constraints where the business meaning is unclear.
 
 ## TD-011 — `CLAUDE.md` folder-structure accuracy
 
@@ -130,11 +130,13 @@ The server enforces a 4000-character cap (500 for the public sandbox) with a cle
 
 ## TD-014 — `aiConfig.model` is a Google-maintained alias, not a pinned version
 
-**Where:** `lib/config.ts`
+**Where:** `lib/ai/config.ts` (moved from `lib/config.ts`, Sprint 5 S5-001)
 
 **Priority:** Medium (accepted risk)
 
 `gemini-flash-latest` is deliberate — it's the fix for the exact failure mode that blocked the v0.7.0 release (a specific pinned model going overloaded/unavailable). Trade-off: behavior can shift without our control if Google repoints the alias. No mitigation currently planned; accepted explicitly during the v0.7.1 roadmap review.
+
+**Sprint 5 addendum (S5-002/S5-003):** `anthropicConfig.model` (`"claude-sonnet-5"`) and `openaiConfig.model` (`"gpt-4.1"`), same file, carry the inverse risk instead of this one — both are pinned specific identifiers, not "-latest"-style aliases, so neither can silently change behavior underneath the app the way Gemini's alias can, but either could eventually be retired/deprecated by its provider and start failing outright. Neither provider serves real traffic today (`DEFAULT_AI_PROVIDER` defaults to `gemini`, S5-004), so this is a low-priority, forward-looking note, not a live risk.
 
 ## TD-015 — Placeholder/test project data visible in the real production account
 
@@ -183,3 +185,72 @@ Not a bug, but there's no documented internal process for verifying/rotating sec
 **Verified via Sprint 0 runtime verification (S0-005):** `signUp()` called `redirect("/dashboard")` unconditionally on success, without checking whether a session was actually established. When the Supabase project requires email confirmation (as this project's does), no session existed yet, so `proxy.ts` immediately redirected the still-unauthenticated request back to `/login` with no explanation shown. The block itself was correct and not a security gap — this was purely a missing success-state message.
 
 **Fix (Sprint 1, S1-004):** `signUp()` now checks `data.session` and returns `{ ok: true, requiresConfirmation: true }` instead of redirecting when no session was established; `SignupForm` shows "Account created — check your email to confirm it before signing in." for that case.
+
+## TD-020 — Icon-only buttons' hit area matches their small visual size, not Design System 2.0's 44×44px minimum — RESOLVED
+
+**Where:** `components/ui/button.tsx`'s `icon-xs`/`icon-sm`/`icon`/`icon-lg` size variants, and every consumer of them — `OutputActions` (copy/download), the new S4-015 controls (`WorkbenchFullscreenToggle`, `SplitPaneCanvas`'s panel-collapse chevrons, `WorkbenchGenerationNav`'s prev/next), and others across the app predating Sprint 4.
+
+**Priority:** was Medium, now closed
+
+**Fix (Sprint 6, S6-006):** each of the four icon-only size variants in `components/ui/button.tsx` now carries an invisible `::before` pseudo-element (`before:size-11` = 44px, centered via `top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2`, `relative` on the button itself as the positioning context) — a single, shared fix in the variant definitions, applied to every consumer at once rather than per-file. This addresses the audit's own concern: tightly-packed clusters (`OutputActions` copy/download at `gap-1`, `SplitPaneCanvas`'s collapse chevrons at `gap-0.5`, `WorkbenchGenerationNav`'s prev/next at `gap-1`, `MermaidCanvas`'s zoom controls at `gap-1`) all had their gaps widened one step up Design-System-2.0.md §4's spacing scale (`gap-0.5`→`gap-1`, `gap-1`→`gap-2`) specifically because they hold two-or-more icon-only buttons directly adjacent to each other, reducing (not necessarily eliminating) hit-slop overlap between neighbors. Standalone icon buttons (`ThemeToggle`, `FullscreenToggle`, sidebar trigger, dialog/sheet close buttons) needed no spacing change since there's no adjacent icon-only control to overlap. `CodeViewer`'s minimap toggle turned out, on inspection, to already be a labeled `size="sm"` button (not an icon-only variant) — outside this fix's actual scope, which is icon-only buttons specifically, matching this TD's own title.
+
+Disclosed, not glossed over: no live browser/pixel measurement of the resulting hit areas was performed in this environment (no browser available) — the fix is verified by reading the resulting computed CSS (a 44px pseudo-element centered on each button) and by `lint`/`typecheck`/`test`/`build` passing, not by an actual click-precision test.
+
+## TD-021 — Workbench Fullscreen Mode hides app chrome instantly, not with the spec's `duration-slow` transition
+
+**Where:** `features/shell/components/dashboard-chrome.tsx` (S4-015)
+
+**Priority:** Low
+
+**Found during:** Sprint 4's S4-016 accessibility/micro-interaction audit pass.
+
+**What the spec asks for:** `Workbench-Experience-Specification.md` §Fullscreen Mode describes the sidebar/top bar hiding "with a `duration-slow` transition."
+
+**What's implemented instead:** `DashboardChrome` conditionally mounts (`{!isFullscreen && sidebar}`) rather than animating — the chrome disappears/reappears instantly. This was a deliberate, considered choice, not an oversight: `components/ui/sidebar.tsx`'s desktop `Sidebar` renders its actual visible panel as a `position: fixed` element, so wrapping it in an animated-width container (the natural first approach) has no effect on it — `fixed` positioning ignores an ancestor's width entirely. The alternative that would actually animate it — driving the existing `SidebarProvider`'s own `open`/`collapsible="offcanvas"` state, which already has a working `transition-[width]`/`transition-[left]` — risks clobbering that provider's own independent, cookie-persisted user preference (a user who manually collapsed their sidebar before entering fullscreen could have that preference silently overwritten on exit). Resolving this correctly needs a small, deliberate design decision about how fullscreen's transient state composes with the sidebar's persisted state, not a quick patch under this task's scope.
+
+**Recommended fix:** decide explicitly (product/design call) whether fullscreen should save-and-restore the sidebar's prior `open` state around entry/exit via `SidebarProvider`'s controlled props, or whether an instant appear/disappear is an acceptable, intentional exception to the general `duration-slow` rule for this specific full-chrome-removal case (arguably defensible: this is a full layout mode change, not a small surface transition like a dialog or dropdown).
+
+## TD-022 — No Retry button or partial-artifact failure recovery in the Generator — RESOLVED
+
+**Where:** `features/compiler/components/generation-status.tsx`, `lib/stores/generation-store.ts`, `docs/specifications/Generator-Experience-Specification.md` §Failure Recovery, `docs/specifications/User-Journey-Maps.md` Journey 5 ("Failed Generation").
+
+**Priority:** was Medium, now closed
+
+**Fix (Sprint 6, S6-001):** `GenerationStatus` now takes an `onRetry` prop and renders an `ErrorState` with a `kind: "retry"` action in its error branch, instead of a plain message. `SchemaGenerator` wires `onRetry` to the exact same `handleGenerate` function the Generate button already calls — no new submission logic, no change to `use-generate-schema.ts` or `generation-store.ts` (their existing `prompt`/`fail` handling was already sufficient, as the roadmap anticipated). The "partial-streaming failure" bullet was removed from `Generator-Experience-Specification.md` and `User-Journey-Maps.md` Journey 5 rather than ever attempted — it was already established as architecturally impossible given the one-atomic-call pipeline, not a deferred feature.
+
+**Found during:** Sprint 4's S4-017 closure task, walking `User-Journey-Maps.md`'s journeys against the real, merged product.
+
+**What the specs describe:** a **Retry** button on failure that resubmits the exact same prompt, plus "partial-streaming failure" behavior where already-completed artifacts stay visible/usable and only the failed remainder shows a scoped retry.
+
+**What's actually shipped:** `GenerationStatus`'s error branch is a plain destructive-colored message (`{state.message}`) with no Retry control at all — the user must manually re-trigger Generate. The prompt-preservation half of the spec did ship and is verified (`generation-store.ts`'s `fail()` action never touches `prompt`). The "partial-streaming failure" bullet describes a granularity that's architecturally impossible regardless of implementation effort: per §Streaming Generation's own S4-012 resolution, the pipeline makes one AI call and compiles all five artifacts synchronously from one AST — there is no "SQL succeeded, JSON failed" intermediate state to recover from partially, only "the one request succeeded or failed."
+
+**Why this wasn't fixed as part of Sprint 4:** no S4-0XX roadmap task was ever scoped to build a Retry mechanism — Sprint 4's Generator-related tasks (S4-011 templates/suggestions, S4-012 staged reveal, S4-013 export/undo) didn't include it, and this predates Sprint 4 entirely. S4-017 is a verification/doc-sync task ("Repository areas affected: None structurally" per its own roadmap entry) — surfacing this gap is exactly its job; building a new feature under its scope, this late in the sprint, is not.
+
+## TD-023 — Workbench keyboard shortcuts table's `Cmd/Ctrl+1..5` and `Cmd/Ctrl+Shift+C` bindings were never implemented
+
+**Where:** `docs/specifications/Workbench-Experience-Specification.md` §Keyboard Shortcuts, `components/dashboard/workbench-command-registration.tsx` (S4-015).
+
+**Priority:** Low
+
+**Found during:** Sprint 4's S4-017 closure task, walking `User-Journey-Maps.md` Journey 4 ("Power User") against the real product.
+
+**What's missing:** direct keystrokes for jumping to code tab N (`Cmd/Ctrl+1..5`) and copying the active tab's content (`Cmd/Ctrl+Shift+C`), both listed in the Workbench spec's own shortcuts table.
+
+## TD-024 — CI/CD pipeline: no automatic trigger, and CD targets a stale/wrong branch
+
+**Where:** `.github/workflows/project_ci.yml`, `.github/workflows/project_cd.yml`, `next.config.ts`
+
+**Priority:** High
+
+**Found during:** Sprint 6's S6-002 audit (`docs/architecture/AD-006-deployment-strategy.md`), performed as an audit-only task since infrastructure/CI-CD files are out of this sprint's application-developer ownership scope.
+
+**What's wrong:**
+1. `project_ci.yml` triggers only on `workflow_dispatch` (manual) — it lost the `push`/`pull_request` triggers its predecessor `ci.yml` had (visible at `git show 170aaddb^:.github/workflows/ci.yml`), so lint/typecheck/test/build do not run automatically on pushes or PRs to `main`.
+2. `project_cd.yml` looks up a CI run via `gh run list --branch develop/chirag`, a branch that does not appear to exist in this repository — the CD workflow cannot currently resolve a valid artifact and is non-functional as written. It also deploys to EC2/PM2, which conflicts with the user's Sprint 6 decision (AD-006) that Vercel is the production platform.
+3. `next.config.ts`'s `output: "standalone"` is an EC2/self-hosted-Node artifact not needed on Vercel; harmless but no longer purposeful.
+
+**Recommended fix (DevOps-owned, not implemented here):** restore automatic `push`/`pull_request` triggers on `project_ci.yml`; remove or archive `project_cd.yml`; confirm/configure Vercel's Git integration (closes TD-005 alongside this); revert `next.config.ts`'s `output: "standalone"`. Full detail in AD-006.
+
+**Why:** S4-015 built the Workbench's fullscreen mode, command-palette route-scoping, prev/next nav, and session persistence, deliberately scoped to that task's own roadmap acceptance criteria — which listed the four command-palette entries ("Jump to generation…," "Toggle ERD panel," "Toggle fullscreen," "Copy [tab] to clipboard") but not these two raw keybindings. The same underlying actions remain reachable today (mouse click on a tab; the command palette's "Copy [tab] to clipboard" entry) — this is a missing keyboard *shortcut*, not a missing feature.
+
+**Recommended fix:** register two more `useKeyboardShortcut` entries in `WorkbenchCommandRegistration` (or a sibling component) — `mod+1` through `mod+5` calling the same `setActiveTab` the tab clicks already use, and `mod+shift+c` calling the same handler the "Copy [tab] to clipboard" command already runs. Small, low-risk, and reuses existing wiring; scoped out of S4-015 for time, not because of any technical blocker.

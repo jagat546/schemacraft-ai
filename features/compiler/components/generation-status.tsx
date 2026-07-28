@@ -1,15 +1,19 @@
 "use client"
 
 // Compiler Experience module: renders the generation pipeline's current
-// state (idle / generating / error). Reads generation-store directly —
-// there's no local UI state to own here, and no per-stage progress to
-// show, because the pipeline (lib/services/generation.service.ts) returns
-// one final result, not intermediate stage events. See
-// docs/architecture/frontend-modularization.md, Day 4 entry.
+// state (idle / generating / error / session-expired). Reads
+// generation-store directly — there's no local UI state to own here, and
+// no per-stage progress to show, because the pipeline
+// (lib/services/generation.service.ts) returns one final result, not
+// intermediate stage events. See docs/architecture/frontend-modularization.md,
+// Day 4 entry.
+import { AlertCircleIcon, LogInIcon } from "lucide-react"
+
+import { ErrorState } from "@/components/patterns/error-state"
 import { OutputSkeleton } from "@/features/workbench/components/output-skeleton"
 import { useGenerationStore } from "@/lib/stores/generation-store"
 
-export function GenerationStatus() {
+export function GenerationStatus({ onRetry }: { onRetry: () => void }) {
   const state = useGenerationStore((store) => store.state)
 
   if (state.status === "generating") {
@@ -31,8 +35,28 @@ export function GenerationStatus() {
     )
   }
 
+  if (state.status === "session-expired") {
+    return (
+      <ErrorState
+        icon={<LogInIcon />}
+        message="Your session has expired. Sign in again to continue — your prompt is still here."
+        action={{
+          kind: "sign-in-again",
+          label: "Sign in again",
+          href: "/login?next=%2Fdashboard%2Fgenerator",
+        }}
+      />
+    )
+  }
+
   if (state.status === "error") {
-    return <p className="text-sm text-destructive">{state.message}</p>
+    return (
+      <ErrorState
+        icon={<AlertCircleIcon />}
+        message={state.message}
+        action={{ kind: "retry", label: "Retry", onClick: onRetry }}
+      />
+    )
   }
 
   return null

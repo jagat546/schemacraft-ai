@@ -19,7 +19,11 @@ export function buildColumnBuilder(column: ColumnNode): ColumnBuilder {
 
   switch (column.type) {
     case "string":
-      return { call: `varchar(${name}, { length: 255 })`, pgCoreImports: ["varchar"], usesBytea: false }
+      return {
+        call: `varchar(${name}, { length: ${column.maxLength ?? 255} })`,
+        pgCoreImports: ["varchar"],
+        usesBytea: false,
+      }
     case "text":
       return { call: `text(${name})`, pgCoreImports: ["text"], usesBytea: false }
     case "integer":
