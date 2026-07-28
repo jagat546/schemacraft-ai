@@ -13,6 +13,60 @@ Found and fixed during a live private-beta release-readiness pass (real browser 
 - `generation_rate_limit_events`'s table creation now lives in a proper Drizzle migration, matching how `sandbox_generations` was already done, rather than an inline `CREATE TABLE IF NOT EXISTS` inside `rls.sql`.
 - `check_authenticated_rate_limit()` now returns `jsonb` (`{ allowed, retry_after_seconds }`) instead of a plain boolean, so a rate-limited rejection can tell the user approximately when to retry.
 
+## Sprint 7 — Private Beta Readiness (2026-07-27)
+
+Retroactively added: this entry and the three below were missing from the changelog entirely until the release-candidate prep found the gap. See `docs/planning/Sprint-07-Closure.md` for the full record.
+
+### Added
+- Route-level loading (`app/(dashboard)/loading.tsx`), error (`app/error.tsx`, `app/global-error.tsx`), and not-found (`app/not-found.tsx`) states for every authenticated route, replacing Next.js's default blank/crash/404 screens with this product's own loading skeleton and `ErrorState` pattern
+- Edit & Regenerate: an action on each past generation in History that carries its original prompt (and the correct project) into the Generator for editing and resubmission
+- Rate-limit rejections now include an approximate retry-time estimate ("try again in about 45 seconds") instead of a bare "try again later"
+
+## Sprint 6 — Product Hardening & First-Run Experience (2026-07-27)
+
+### Added
+- Generator Retry: a real Retry action on a failed generation, resubmitting the preserved prompt through the existing submission path
+- Authenticated-user generation rate limiting (60/hour, burst 10/minute), reusing the public sandbox's proven `pg_advisory_xact_lock` pattern
+- Business-rule `CHECK` constraints (non-negative price/quantity/age-like columns) and realistic `VARCHAR` sizing in generated SQL/Drizzle output, via shared AI prompt guidance
+- Delete-account: `delete_own_account()` (`SECURITY DEFINER`, scoped to `auth.uid()`), a high-friction confirmation dialog in Account Settings, per AD-005
+- A dismissible, cookie-backed first-run onboarding card on the Dashboard
+
+### Fixed
+- Icon-only buttons now meet a 44×44px effective hit-target via a shared hit-slop pseudo-element on the `Button` component
+
+### Documented
+- AD-006: Vercel confirmed as the production platform; audited (not fixed, DevOps-owned) that CI has no automatic trigger and the legacy EC2/PM2 CD workflow is non-functional
+
+## Sprint 5 — AI Provider Architecture (2026-07-27)
+
+### Added
+- A provider-agnostic AI architecture (`AIProviderAdapter`, a shared error hierarchy, retry strategy, provider registry) — Gemini refactored onto it with no behavior change
+- Anthropic and OpenAI providers alongside Gemini, each with their own structured-output mechanism, sharing 100% of the prompt/validation/compiler pipeline
+- Centralized provider selection (`resolveAIProvider()`: explicit choice → `DEFAULT_AI_PROVIDER` env var → Gemini fallback)
+
+### Fixed
+- OpenAI's SDK constructor threw immediately without an API key, which would have crashed every generation (including Gemini-only ones) in any environment without `OPENAI_API_KEY` set — fixed by making every provider's client lazily constructed and cached
+
+### Documented
+- AD-005: delete-account mechanism decision (hard delete via a `SECURITY DEFINER` function, leaning on the existing FK cascade chain) — implemented in Sprint 6
+
+## Sprint 4 — UX 2.0 Implementation (2026-07-27)
+
+### Added
+- Design System 2.0 tokens and semantic color wiring; sidebar breadcrumbs and a mobile nav drawer
+- Password reset flow, sign-out-all-sessions, and a non-redirecting session-expiration recovery path (AD-004) so the Generator can recover in place instead of navigating the user away mid-action
+- Landing page: visual pipeline diagram, interactive demo, social proof, pricing tiers, FAQ
+- Dashboard quick actions, search, filters, a metrics row, and recency-based project ordering
+- A full Account Settings screen: appearance, a live keyboard-shortcuts reference, accessibility overrides (reduced-motion/high-contrast, cookie-backed), account management, and honestly-disabled billing/preferences/developer placeholders
+- Prompt suggestion chips and a Templates picker; a staged artifact reveal on generation
+- Bundled "Export all" zip download and undoable generation deletion
+- Monaco Editor replacing the previous Prism-based code viewer
+- Workbench Fullscreen Mode, a route-scoped command palette, prev/next generation navigation, and session-persisted layout state
+- `jest-axe` accessibility testing infrastructure
+
+### Fixed
+- A nested-interactive accessibility violation (a focusable button inside another focusable element) and a missing product-wide `prefers-reduced-motion` media query
+
 ## v0.7.1 — Milestones 2b, 2c & 3: Generation Quality + History (2026-07-26)
 
 ### Added
