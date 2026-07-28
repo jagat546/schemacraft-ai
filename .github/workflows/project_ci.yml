@@ -6,7 +6,7 @@ on:
       branch:
         description: "Branch to build"
         required: true
-        default: "main"
+        default: "develop/chirag"
         type: string
 
 permissions:
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ inputs.branch }}
           fetch-depth: 0
 
       - name: Display Build Information
@@ -32,7 +32,7 @@ jobs:
           echo "Run Number   : ${{ github.run_number }}"
           echo "Run ID       : ${{ github.run_id }}"
           echo "Triggered By : ${{ github.actor }}"
-          echo "Branch       : ${{ github.event.inputs.branch }}"
+          echo "Branch       : ${{ inputs.branch }}"
           echo "Commit SHA   : $(git rev-parse --short HEAD)"
           echo "========================================"
 
@@ -55,19 +55,45 @@ jobs:
         run: npm test
 
       - name: Build Application
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: npm run build
 
-      - name: Show Build Output
+      - name: Validate Build Output
         run: |
-          echo "Build completed successfully."
-          ls -la
+          set -e
+
+          if [ ! -f ".next/standalone/server.js" ]; then
+            echo "Next.js standalone server was not generated."
+            exit 1
+          fi
+
+          if [ ! -d ".next/static" ]; then
+            echo "Next.js static directory was not generated."
+            exit 1
+          fi
+
+          echo "========================================"
+          echo "Build completed successfully"
+          echo "Standalone server: Found"
+          echo "Static assets    : Found"
+          echo "========================================"
 
       - name: Create Deployment Package
         run: |
-          zip -r schemacraft-build-${{ github.run_number }}.zip . \
+          set -e
+
+          ARTIFACT_FILE="schemacraft-build-${{ github.run_number }}.zip"
+
+          zip -r "$ARTIFACT_FILE" . \
             -x ".git/*" \
             -x ".github/*" \
-            -x "node_modules/*"
+            -x "node_modules/*" \
+            -x ".next/cache/*" \
+            -x "$ARTIFACT_FILE"
+
+          echo "Created deployment package:"
+          ls -lh "$ARTIFACT_FILE"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
@@ -75,10 +101,13 @@ jobs:
           name: schemacraft-build-${{ github.run_number }}
           path: schemacraft-build-${{ github.run_number }}.zip
           retention-days: 30
+          if-no-files-found: error
 
       - name: Build Summary
         run: |
           echo "========================================"
           echo "CI Pipeline Completed Successfully"
-          echo "Artifact : schemacraft-build-${{ github.run_number }}"
+          echo "Build Number : ${{ github.run_number }}"
+          echo "Artifact     : schemacraft-build-${{ github.run_number }}"
+          echo "Branch       : ${{ inputs.branch }}"
           echo "========================================"
