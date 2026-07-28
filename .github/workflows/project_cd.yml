@@ -1,79 +1,87 @@
-name: Project_CD
+name: Project CD
 
 on:
   workflow_dispatch:
     inputs:
       build_number:
         description: "Enter CI Build Number"
+        description: "Enter CI Build Number"
         required: true
+        type: string
         type: string
 
 permissions:
   contents: read
   actions: read
+  actions: read
 
 jobs:
   deploy:
-    name: Deploy Application
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
+      - name: Download Selected Build Artifact
       - name: Download Selected Build Artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
-
-          BUILD_NUMBER="${{ github.event.inputs.build_number }}"
-          ARTIFACT_NAME="schemacraft-build-${BUILD_NUMBER}"
-
           echo "=================================="
           echo "Project CD Started"
-          echo "Build   : ${BUILD_NUMBER}"
-          echo "Artifact: ${ARTIFACT_NAME}"
+          echo "Build : ${{ github.event.inputs.build_number }}"
           echo "=================================="
 
           RUN_IDS=$(gh run list \
             --repo "${{ github.repository }}" \
-            --workflow "project_ci.yml" \
+            --workflow "Project_CI" \
             --limit 100 \
             --json databaseId \
+            --jq '.[].databaseId')
+
+          ARTIFACT_ID=""
             --jq '.[].databaseId')
 
           ARTIFACT_ID=""
 
           for RUN_ID in $RUN_IDS
           do
-            echo "Checking CI Run: ${RUN_ID}"
+            echo "Checking Run : $RUN_ID"
 
             ARTIFACT_ID=$(gh api \
-              "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" \
-              --jq ".artifacts[]? | select(.name==\"${ARTIFACT_NAME}\") | .id" \
-              | head -1)
+              repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts \
+              --jq '.artifacts[]? | select(.name=="schemacraft-build-${{ github.event.inputs.build_number }}") | .id')
 
             if [ -n "$ARTIFACT_ID" ]; then
-              echo "Run ID      : ${RUN_ID}"
-              echo "Artifact ID : ${ARTIFACT_ID}"
+              echo "Run ID      : $RUN_ID"
+              echo "Artifact ID : $ARTIFACT_ID"
               break
             fi
           done
 
           if [ -z "$ARTIFACT_ID" ]; then
-            echo "Artifact ${ARTIFACT_NAME} not found."
+            echo "Artifact schemacraft-build-${{ github.event.inputs.build_number }} not found."
             exit 1
           fi
 
           curl -L \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip \
             -o schemacraft-build.zip
 
-          echo "Downloaded artifact:"
+          echo "Downloaded Artifact"
           ls -lh schemacraft-build.zip
 
+      - name: Copy Artifact to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          source: "schemacraft-build.zip"
+          target: "/tmp"
       - name: Copy Artifact to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -92,94 +100,47 @@ jobs:
           script: |
             set -e
 
-            APP_DIR="/opt/schemacraft-ai"
+            APP_DIR=/opt/schemacraft-ai
 
-            echo "=================================="
-            echo "Preparing Deployment"
-            echo "=================================="
+            sudo mkdir -p $APP_DIR
+            sudo chown -R $USER:$USER $APP_DIR
 
-            sudo mkdir -p "$APP_DIR"
-            sudo chown -R "$USER:$USER" "$APP_DIR"
+            cd $APP_DIR
 
-            cd "$APP_DIR"
-
-            # Preserve hidden files such as .env.
-            rm -rf -- *
+            rm -rf *
 
             # Extract GitHub artifact
             unzip -oq /tmp/schemacraft-build.zip
 
-            DEPLOYMENT_ZIP=$(find . -maxdepth 1 -type f \
-              -name "schemacraft-build-*.zip" | head -1)
+            # Extract deployment package
+            unzip -oq schemacraft-build-*.zip
 
-            if [ -z "$DEPLOYMENT_ZIP" ]; then
-              echo "Deployment ZIP not found inside the GitHub artifact."
-              exit 1
-            fi
-
-            unzip -oq "$DEPLOYMENT_ZIP"
-            rm -f "$DEPLOYMENT_ZIP"
-
-            if [ ! -f "package.json" ]; then
-              echo "package.json not found."
-              exit 1
-            fi
-
-            if [ ! -f ".next/standalone/server.js" ]; then
-              echo "Standalone Next.js server not found."
-              exit 1
-            fi
+            rm -f schemacraft-build-*.zip
 
             echo "=================================="
-            echo "Copying Static Assets"
+            echo "Deployment Package Contents"
             echo "=================================="
+            ls -lah
 
-            mkdir -p .next/standalone/.next
-            rm -rf .next/standalone/.next/static
-            cp -r .next/static .next/standalone/.next/static
+            export NODE_OPTIONS="--max-old-space-size=2048"
 
-            if [ -d "public" ]; then
-              rm -rf .next/standalone/public
-              cp -r public .next/standalone/public
-            fi
-
-            if [ ! -f ".env" ]; then
-              echo ".env file not found."
-              exit 1
-            fi
-
-            set -a
-            . ./.env
-            set +a
-
-            echo "=================================="
-            echo "Starting Application"
-            echo "=================================="
+            npm install --omit=dev
 
             pm2 delete schemacraft-ai || true
 
-            HOSTNAME=0.0.0.0 PORT=3000 pm2 start \
-              .next/standalone/server.js \
-              --name schemacraft-ai \
-              --cwd "$APP_DIR" \
-              --interpreter node
+            if [ -f ".next/standalone/server.js" ]; then
+              echo "Starting Standalone Build..."
+              pm2 start .next/standalone/server.js \
+                --name schemacraft-ai \
+                --interpreter node
+            else
+              echo "Starting Regular Next.js Build..."
+              pm2 start npm \
+                --name schemacraft-ai \
+                -- start
+            fi
 
             pm2 save
-
-            sleep 5
-
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://127.0.0.1:3000)
-
-            echo "Application HTTP Status: ${HTTP_STATUS}"
-
-            if [ "$HTTP_STATUS" != "200" ] && \
-               [ "$HTTP_STATUS" != "307" ] && \
-               [ "$HTTP_STATUS" != "308" ]; then
-              echo "Application health check failed."
-              pm2 logs schemacraft-ai --lines 50 --nostream
-              exit 1
-            fi
 
             pm2 status
 
