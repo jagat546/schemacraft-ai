@@ -18,8 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Download Selected Build Artifact
         env:
@@ -107,6 +106,7 @@ jobs:
             # Preserve hidden files such as .env.
             rm -rf -- *
 
+            # Extract GitHub artifact
             unzip -oq /tmp/schemacraft-build.zip
 
             DEPLOYMENT_ZIP=$(find . -maxdepth 1 -type f \
