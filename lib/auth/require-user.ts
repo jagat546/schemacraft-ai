@@ -2,14 +2,18 @@ import "server-only"
 
 import { redirect } from "next/navigation"
 
-import { getCurrentUser } from "@/lib/auth/current-user"
+import { getSessionResult } from "@/lib/auth/session-result"
 
+// Reimplemented on top of getSessionResult() (AD-004) so there is exactly
+// one place that decides "is there a valid session" -- this function's own
+// exported signature and behavior (redirect to /login when missing,
+// otherwise return the user) are unchanged for every existing caller.
 export async function requireUser() {
-  const user = await getCurrentUser()
+  const result = await getSessionResult()
 
-  if (!user) {
+  if (result.status === "SESSION_EXPIRED") {
     redirect("/login")
   }
 
-  return user
+  return result.user
 }

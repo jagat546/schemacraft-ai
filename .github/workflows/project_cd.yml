@@ -5,11 +5,14 @@ on:
     inputs:
       build_number:
         description: "Enter CI Build Number"
+        description: "Enter CI Build Number"
         required: true
+        type: string
         type: string
 
 permissions:
   contents: read
+  actions: read
   actions: read
 
 jobs:
@@ -18,7 +21,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
+      - name: Download Selected Build Artifact
       - name: Download Selected Build Artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,6 +38,9 @@ jobs:
             --workflow "Project_CI" \
             --limit 100 \
             --json databaseId \
+            --jq '.[].databaseId')
+
+          ARTIFACT_ID=""
             --jq '.[].databaseId')
 
           ARTIFACT_ID=""
@@ -66,6 +74,14 @@ jobs:
           echo "Downloaded Artifact"
           ls -lh schemacraft-build.zip
 
+      - name: Copy Artifact to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          source: "schemacraft-build.zip"
+          target: "/tmp"
       - name: Copy Artifact to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
