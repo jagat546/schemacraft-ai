@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { DYNAMIC_ROUTE_TITLES } from "@/features/shell/components/page-title"
+import { DYNAMIC_ROUTE_TITLES, isProjectScopedRoute } from "@/features/shell/components/page-title"
 import { useProjectStore } from "@/lib/stores/project-store"
 
 const PROJECT_ID_PATTERN = /^\/dashboard\/projects\/([^/]+)\//
@@ -24,6 +24,9 @@ export function Breadcrumbs() {
   const pathname = usePathname()
   const projects = useProjectStore((state) => state.projects)
 
+  if (!isProjectScopedRoute(pathname)) {
+    return null
+  }
   const screenEntry = DYNAMIC_ROUTE_TITLES.find((entry) => pathname.endsWith(entry.suffix))
   if (!screenEntry) {
     return null

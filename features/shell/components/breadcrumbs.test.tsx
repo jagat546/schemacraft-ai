@@ -66,4 +66,16 @@ describe("Breadcrumbs", () => {
 
     expect(screen.getByText("Project Settings")).toBeTruthy()
   })
+
+  it("renders nothing on the account-level /dashboard/settings route, even though it shares the /settings suffix (regression)", () => {
+    // Found live during the private-beta browser verification pass: a
+    // bare `.endsWith('/settings')` match also matched this account-level
+    // route, showing "Project Settings" for a screen with no project at
+    // all.
+    mockUsePathname.mockReturnValue("/dashboard/settings")
+
+    const { container } = render(<Breadcrumbs />)
+
+    expect(container.firstChild).toBeNull()
+  })
 })
