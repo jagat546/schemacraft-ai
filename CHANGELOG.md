@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — Private Beta Readiness Hardening (2026-07-28)
+
+Found and fixed during a live private-beta release-readiness pass (real browser verification against a real dev/staging Supabase project, not simulated) — see `docs/planning/Private-Beta-Release-Checklist.md`. Covers Sprints 6/7's own accumulated work reaching a live database for the first time, plus three real bugs only a live pass could surface.
+
+### Fixed
+- **Critical:** `check_authenticated_rate_limit()` and `delete_own_account()` (S6-003/S6-004) had never been applied to any live database, and `user_preferences`/`generation_rate_limit_events` had no table-creation migration at all — applying `supabase/rls.sql` failed outright. Since the rate limiter fails closed on any RPC error, this meant every authenticated generation request would have failed from a beta's first user onward. Generated the missing Drizzle migration for both tables and re-applied `rls.sql`; both functions are now live and confirmed callable.
+- Icon-only `outline`/`ghost` buttons (e.g. "Sign out," "Back to Dashboard") rendered light-mode text color even in a genuinely active dark-mode session — measured contrast ratio 1.12:1 against the dark surface, a severe, near-invisible WCAG failure. Both variants now declare an explicit rest-state text color instead of relying on inheritance.
+- The Account Settings page (`/dashboard/settings`) showed "Project Settings" in the top bar/breadcrumb instead of "Account Settings," because the per-project route title table matched by URL suffix alone and `/dashboard/settings` happens to share the `/settings` suffix with the per-project route it was built for.
+
+### Changed
+- `generation_rate_limit_events`'s table creation now lives in a proper Drizzle migration, matching how `sandbox_generations` was already done, rather than an inline `CREATE TABLE IF NOT EXISTS` inside `rls.sql`.
+- `check_authenticated_rate_limit()` now returns `jsonb` (`{ allowed, retry_after_seconds }`) instead of a plain boolean, so a rate-limited rejection can tell the user approximately when to retry.
+
 ## v0.7.1 — Milestones 2b, 2c & 3: Generation Quality + History (2026-07-26)
 
 ### Added
