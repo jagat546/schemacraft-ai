@@ -4,7 +4,7 @@ import { drizzleCompiler } from "@/lib/compiler/drizzle/drizzle-compiler"
 import { buildAst } from "@/lib/compiler/test-helpers"
 
 describe("drizzleCompiler", () => {
-  it("happy path: 2-arg pgTable form, a single-column FK with onDelete, and relations() blocks", () => {
+  it("happy path: 2-arg pgTable form, a single-column FK with onDelete, an auto-generated FK index, and relations() blocks", () => {
     const ast = buildAst(
       [
         {
@@ -29,9 +29,11 @@ describe("drizzleCompiler", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
+    // users has no outgoing FK, so it stays 2-arg form; posts now needs
+    // the 3-arg form since TD-003 gives author_id an auto-generated index.
     expect(result.output).toBe(
       [
-        'import { integer, pgTable, uuid, varchar } from "drizzle-orm/pg-core"',
+        'import { index, integer, pgTable, uuid, varchar } from "drizzle-orm/pg-core"',
         'import { relations } from "drizzle-orm"',
         "",
         'export const users = pgTable("users", {',
@@ -39,10 +41,14 @@ describe("drizzleCompiler", () => {
         '  email: varchar("email", { length: 255 }).notNull().unique(),',
         "})",
         "",
-        'export const posts = pgTable("posts", {',
-        '  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),',
-        '  authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),',
-        "})",
+        "export const posts = pgTable(",
+        '  "posts",',
+        "  {",
+        '    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),',
+        '    authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),',
+        "  },",
+        '  (table) => [index("idx_posts_author_id").on(table.authorId)]',
+        ")",
         "",
         "export const usersRelations = relations(users, ({ one, many }) => ({",
         "  posts: many(posts),",
@@ -269,6 +275,33 @@ describe("drizzleCompiler", () => {
     )
   })
 
+  it("uses maxLength for varchar length when set, and 255 when unset (S6-005)", () => {
+    const ast = buildAst([
+      {
+        name: "products",
+        columns: [
+          { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+          { name: "slug", type: "string", nullable: false, unique: false, primaryKey: false, maxLength: 50 },
+          { name: "name", type: "string", nullable: false, unique: false, primaryKey: false },
+        ],
+      },
+    ])
+    const result = drizzleCompiler.compile(ast)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.output).toBe(
+      [
+        'import { integer, pgTable, varchar } from "drizzle-orm/pg-core"',
+        "",
+        'export const products = pgTable("products", {',
+        '  id: integer("id").primaryKey(),',
+        '  slug: varchar("slug", { length: 50 }).notNull(),',
+        '  name: varchar("name", { length: 255 }).notNull(),',
+        "})",
+      ].join("\n")
+    )
+  })
+
   it("gives composite (multi-column) relationships a relations() entry only, no physical .references()", () => {
     const ast = buildAst(
       [
@@ -382,15 +415,21 @@ describe("drizzleCompiler", () => {
     // the same base key ("comments"), which exercises the duplicate-key
     // suffixing logic too (comments / comments2) — a real, non-obvious
     // emergent behavior worth pinning precisely, not just approximately.
+    // parent_id now also gets an auto-generated FK index (TD-003), which
+    // moves comments to the 3-arg pgTable form.
     expect(result.output).toBe(
       [
-        'import { pgTable, uuid } from "drizzle-orm/pg-core"',
+        'import { index, pgTable, uuid } from "drizzle-orm/pg-core"',
         'import { relations } from "drizzle-orm"',
         "",
-        'export const comments = pgTable("comments", {',
-        '  id: uuid("id").primaryKey(),',
-        '  parentId: uuid("parent_id").references(() => comments.id),',
-        "})",
+        "export const comments = pgTable(",
+        '  "comments",',
+        "  {",
+        '    id: uuid("id").primaryKey(),',
+        '    parentId: uuid("parent_id").references(() => comments.id),',
+        "  },",
+        '  (table) => [index("idx_comments_parent_id").on(table.parentId)]',
+        ")",
         "",
         "export const commentsRelations = relations(comments, ({ one, many }) => ({",
         "  comments: one(comments, { fields: [comments.parentId], references: [comments.id] }),",
@@ -398,6 +437,143 @@ describe("drizzleCompiler", () => {
         "}))",
       ].join("\n")
     )
+  })
+
+  describe("foreign key indexes (TD-003)", () => {
+    it("creates one index entry per relationship when a table has multiple foreign keys", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "author_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+              { name: "editor_id", type: "integer", nullable: true, unique: false, primaryKey: false },
+            ],
+          },
+        ],
+        [
+          { sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] },
+          { sourceTable: "posts", sourceColumns: ["editor_id"], targetTable: "users", targetColumns: ["id"] },
+        ]
+      )
+      const result = drizzleCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      // Order follows relationship declaration order, same guarantee as
+      // every other compiler step.
+      expect(result.output).toContain(
+        '(table) => [index("idx_posts_author_id").on(table.authorId), index("idx_posts_editor_id").on(table.editorId)]'
+      )
+    })
+
+    it("creates one index covering every column of a composite foreign key", () => {
+      const ast = buildAst(
+        [
+          {
+            name: "a",
+            columns: [
+              { name: "x", type: "integer", nullable: false, unique: false, primaryKey: false },
+              { name: "y", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+          },
+          {
+            name: "b",
+            columns: [
+              { name: "x", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "y", type: "integer", nullable: false, unique: false, primaryKey: true },
+            ],
+            primaryKey: { columns: ["x", "y"] },
+          },
+        ],
+        [{ sourceTable: "a", sourceColumns: ["x", "y"], targetTable: "b", targetColumns: ["x", "y"] }]
+      )
+      const result = drizzleCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toContain('(table) => [index("idx_a_x_y").on(table.x, table.y)]')
+    })
+
+    it("regression: does not duplicate an index when the FK column is already the primary key", () => {
+      // profiles.user_id is both the FK to users.id and profiles' own
+      // primary key — already covered by .primaryKey(), so no index()
+      // entry (and no 3-arg form) should appear.
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "profiles",
+            columns: [{ name: "user_id", type: "integer", nullable: false, unique: false, primaryKey: true }],
+          },
+        ],
+        [{ sourceTable: "profiles", sourceColumns: ["user_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      const result = drizzleCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'import { integer, pgTable } from "drizzle-orm/pg-core"',
+          'import { relations } from "drizzle-orm"',
+          "",
+          'export const users = pgTable("users", {',
+          '  id: integer("id").primaryKey(),',
+          "})",
+          "",
+          'export const profiles = pgTable("profiles", {',
+          '  userId: integer("user_id").primaryKey().references(() => users.id),',
+          "})",
+          "",
+          "export const usersRelations = relations(users, ({ one, many }) => ({",
+          "  profiles: many(profiles),",
+          "}))",
+          "",
+          "export const profilesRelations = relations(profiles, ({ one, many }) => ({",
+          "  users: one(users, { fields: [profiles.userId], references: [users.id] }),",
+          "}))",
+        ].join("\n")
+      )
+    })
+
+    it("regression: does not duplicate an index when the FK columns already match an explicit AST index", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "author_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+            indexes: [{ name: "idx_posts_author_id_custom", columns: ["author_id"] }],
+          },
+        ],
+        [{ sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      const result = drizzleCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toContain('(table) => [index("idx_posts_author_id_custom").on(table.authorId)]')
+      expect(result.output.match(/index\(/g) ?? []).toHaveLength(1)
+    })
+
+    it("is deterministic across repeated compiles of a relationship-bearing AST", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "author_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+          },
+        ],
+        [{ sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      expect(drizzleCompiler.compile(ast)).toEqual(drizzleCompiler.compile(ast))
+    })
   })
 
   it("converts snake_case AST names to camelCase bindings and property names", () => {

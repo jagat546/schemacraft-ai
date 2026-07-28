@@ -85,13 +85,22 @@ export async function getProjectById(projectId: string): Promise<RepositoryResul
 
 // No userId parameter: RLS restricts every row to the authenticated
 // session, so there is nothing meaningful to accept from the caller.
+//
+// Ordered by updated_at, not created_at (S4-009,
+// Dashboard-Experience-Specification.md §Recent Projects): "most
+// recently active first" means most recently generated-for, not most
+// recently created. This relies on a new database trigger
+// (supabase/triggers.sql, on_generation_created_touch_project) that bumps
+// a project's updated_at whenever a generation is created for it --
+// prior to that trigger, updated_at only changed on a title/description
+// edit via updateProject() below.
 export async function getProjectsForUser(): Promise<RepositoryResult<Project[]>> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
     .from("projects")
     .select()
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .returns<ProjectRow[]>()
 
   if (error) {

@@ -71,6 +71,9 @@ describe("postgresSqlCompiler", () => {
         ");",
         "",
         'CREATE INDEX "idx_posts_title" ON "posts" ("title");',
+        // Auto-generated to support the FK below — posts.author_id has no
+        // explicit index/unique of its own, so this is new since TD-003.
+        'CREATE INDEX "idx_posts_author_id" ON "posts" ("author_id");',
         "",
         'ALTER TABLE "posts" ADD CONSTRAINT "fk_posts_author_id" FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE RESTRICT;',
       ].join("\n")
@@ -316,6 +319,32 @@ describe("postgresSqlCompiler", () => {
       )
     })
 
+    it("uses maxLength for VARCHAR width when set, and 255 when unset (S6-005)", () => {
+      const ast = buildAst([
+        {
+          name: "products",
+          columns: [
+            { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+            { name: "slug", type: "string", nullable: false, unique: false, primaryKey: false, maxLength: 50 },
+            { name: "name", type: "string", nullable: false, unique: false, primaryKey: false },
+          ],
+        },
+      ])
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "products" (',
+          '  "id" INTEGER NOT NULL,',
+          '  "slug" VARCHAR(50) NOT NULL,',
+          '  "name" VARCHAR(255) NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+        ].join("\n")
+      )
+    })
+
     it("renders CREATE UNIQUE INDEX when the index is marked unique", () => {
       const ast = buildAst([
         {
@@ -374,9 +403,338 @@ describe("postgresSqlCompiler", () => {
           '  PRIMARY KEY ("id")',
           ");",
           "",
+          'CREATE INDEX "idx_comments_parent_id" ON "comments" ("parent_id");',
+          "",
           'ALTER TABLE "comments" ADD CONSTRAINT "fk_comments_parent_id" FOREIGN KEY ("parent_id") REFERENCES "comments" ("id");',
         ].join("\n")
       )
+    })
+  })
+
+  describe("foreign key indexes (TD-003)", () => {
+    it("creates an index for a single-column foreign key", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "uuid", nullable: false, unique: true, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "uuid", nullable: false, unique: true, primaryKey: true },
+              { name: "author_id", type: "uuid", nullable: false, unique: false, primaryKey: false },
+            ],
+          },
+        ],
+        [{ sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "users" (',
+          '  "id" UUID NOT NULL UNIQUE,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          'CREATE TABLE "posts" (',
+          '  "id" UUID NOT NULL UNIQUE,',
+          '  "author_id" UUID NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          "",
+          'CREATE INDEX "idx_posts_author_id" ON "posts" ("author_id");',
+          "",
+          'ALTER TABLE "posts" ADD CONSTRAINT "fk_posts_author_id" FOREIGN KEY ("author_id") REFERENCES "users" ("id");',
+        ].join("\n")
+      )
+    })
+
+    it("creates one index per relationship when a table has multiple foreign keys", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "author_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+              { name: "editor_id", type: "integer", nullable: true, unique: false, primaryKey: false },
+            ],
+          },
+        ],
+        [
+          { sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] },
+          { sourceTable: "posts", sourceColumns: ["editor_id"], targetTable: "users", targetColumns: ["id"] },
+        ]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      // Index order follows relationship declaration order, same
+      // determinism guarantee as every other compiler step.
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "users" (',
+          '  "id" INTEGER NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          'CREATE TABLE "posts" (',
+          '  "id" INTEGER NOT NULL,',
+          '  "author_id" INTEGER NOT NULL,',
+          '  "editor_id" INTEGER NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          "",
+          'CREATE INDEX "idx_posts_author_id" ON "posts" ("author_id");',
+          'CREATE INDEX "idx_posts_editor_id" ON "posts" ("editor_id");',
+          "",
+          'ALTER TABLE "posts" ADD CONSTRAINT "fk_posts_author_id" FOREIGN KEY ("author_id") REFERENCES "users" ("id");',
+          'ALTER TABLE "posts" ADD CONSTRAINT "fk_posts_editor_id" FOREIGN KEY ("editor_id") REFERENCES "users" ("id");',
+        ].join("\n")
+      )
+    })
+
+    it("creates one index covering every column of a composite foreign key", () => {
+      const ast = buildAst(
+        [
+          {
+            name: "a",
+            columns: [
+              { name: "x", type: "integer", nullable: false, unique: false, primaryKey: false },
+              { name: "y", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+          },
+          {
+            name: "b",
+            columns: [
+              { name: "x", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "y", type: "integer", nullable: false, unique: false, primaryKey: true },
+            ],
+            primaryKey: { columns: ["x", "y"] },
+          },
+        ],
+        [{ sourceTable: "a", sourceColumns: ["x", "y"], targetTable: "b", targetColumns: ["x", "y"] }]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "a" (',
+          '  "x" INTEGER NOT NULL,',
+          '  "y" INTEGER NOT NULL',
+          ");",
+          'CREATE TABLE "b" (',
+          '  "x" INTEGER NOT NULL,',
+          '  "y" INTEGER NOT NULL,',
+          '  PRIMARY KEY ("x", "y")',
+          ");",
+          "",
+          'CREATE INDEX "idx_a_x_y" ON "a" ("x", "y");',
+          "",
+          'ALTER TABLE "a" ADD CONSTRAINT "fk_a_x_y" FOREIGN KEY ("x", "y") REFERENCES "b" ("x", "y");',
+        ].join("\n")
+      )
+    })
+
+    it("regression: does not duplicate an index when the FK column is already the primary key", () => {
+      // A common 1:1 shape: profiles.user_id is both the FK to users.id
+      // and profiles' own primary key — already indexed by Postgres via
+      // the PRIMARY KEY itself, so no extra index should appear.
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "uuid", nullable: false, unique: true, primaryKey: true }] },
+          {
+            name: "profiles",
+            columns: [
+              { name: "user_id", type: "uuid", nullable: false, unique: true, primaryKey: true },
+              { name: "bio", type: "text", nullable: true, unique: false, primaryKey: false },
+            ],
+          },
+        ],
+        [{ sourceTable: "profiles", sourceColumns: ["user_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "users" (',
+          '  "id" UUID NOT NULL UNIQUE,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          'CREATE TABLE "profiles" (',
+          '  "user_id" UUID NOT NULL UNIQUE,',
+          '  "bio" TEXT NULL,',
+          '  PRIMARY KEY ("user_id")',
+          ");",
+          "",
+          'ALTER TABLE "profiles" ADD CONSTRAINT "fk_profiles_user_id" FOREIGN KEY ("user_id") REFERENCES "users" ("id");',
+        ].join("\n")
+      )
+    })
+
+    it("regression: does not duplicate an index when the FK column already has a column-level unique flag", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "accounts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "user_id", type: "integer", nullable: false, unique: true, primaryKey: false },
+            ],
+          },
+        ],
+        [{ sourceTable: "accounts", sourceColumns: ["user_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "users" (',
+          '  "id" INTEGER NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          'CREATE TABLE "accounts" (',
+          '  "id" INTEGER NOT NULL,',
+          '  "user_id" INTEGER NOT NULL UNIQUE,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          "",
+          'ALTER TABLE "accounts" ADD CONSTRAINT "fk_accounts_user_id" FOREIGN KEY ("user_id") REFERENCES "users" ("id");',
+        ].join("\n")
+      )
+    })
+
+    it("regression: does not duplicate an index when the FK columns already match an explicit AST index", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "author_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+            indexes: [{ name: "idx_posts_author_id_custom", columns: ["author_id"] }],
+          },
+        ],
+        [{ sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "users" (',
+          '  "id" INTEGER NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          'CREATE TABLE "posts" (',
+          '  "id" INTEGER NOT NULL,',
+          '  "author_id" INTEGER NOT NULL,',
+          '  PRIMARY KEY ("id")',
+          ");",
+          "",
+          'CREATE INDEX "idx_posts_author_id_custom" ON "posts" ("author_id");',
+          "",
+          'ALTER TABLE "posts" ADD CONSTRAINT "fk_posts_author_id" FOREIGN KEY ("author_id") REFERENCES "users" ("id");',
+        ].join("\n")
+      )
+    })
+
+    it("regression: does not duplicate an index when the FK columns already match a table-level unique constraint", () => {
+      const ast = buildAst(
+        [
+          {
+            name: "orgs",
+            columns: [
+              { name: "user_ref", type: "integer", nullable: false, unique: false, primaryKey: false },
+              { name: "org_ref", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+          },
+          {
+            name: "memberships",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "user_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+              { name: "org_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+            constraints: [{ kind: "unique", columns: ["user_id", "org_id"] }],
+          },
+        ],
+        [
+          {
+            sourceTable: "memberships",
+            sourceColumns: ["user_id", "org_id"],
+            targetTable: "orgs",
+            targetColumns: ["user_ref", "org_ref"],
+          },
+        ]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output).toBe(
+        [
+          'CREATE TABLE "orgs" (',
+          '  "user_ref" INTEGER NOT NULL,',
+          '  "org_ref" INTEGER NOT NULL',
+          ");",
+          'CREATE TABLE "memberships" (',
+          '  "id" INTEGER NOT NULL,',
+          '  "user_id" INTEGER NOT NULL,',
+          '  "org_id" INTEGER NOT NULL,',
+          '  PRIMARY KEY ("id"),',
+          '  UNIQUE ("user_id", "org_id")',
+          ");",
+          "",
+          'ALTER TABLE "memberships" ADD CONSTRAINT "fk_memberships_user_id_org_id" FOREIGN KEY ("user_id", "org_id") REFERENCES "orgs" ("user_ref", "org_ref");',
+        ].join("\n")
+      )
+    })
+
+    it("regression: two relationships sharing an identical composite FK column set produce only one index", () => {
+      // Defensive case, not a claimed realistic schema shape: proves the
+      // dedup key is the column set, not the relationship itself, so a
+      // table can never end up with two indexes over the exact same columns.
+      const ast = buildAst(
+        [
+          { name: "a", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          { name: "b", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "links",
+            columns: [{ name: "a_id", type: "integer", nullable: false, unique: false, primaryKey: false }],
+          },
+        ],
+        [
+          { sourceTable: "links", sourceColumns: ["a_id"], targetTable: "a", targetColumns: ["id"] },
+          { sourceTable: "links", sourceColumns: ["a_id"], targetTable: "b", targetColumns: ["id"] },
+        ]
+      )
+      const result = postgresSqlCompiler.compile(ast)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.output.match(/CREATE INDEX/g) ?? []).toHaveLength(1)
+      expect(result.output).toContain('CREATE INDEX "idx_links_a_id" ON "links" ("a_id");')
+    })
+
+    it("is deterministic across repeated compiles of a relationship-bearing AST", () => {
+      const ast = buildAst(
+        [
+          { name: "users", columns: [{ name: "id", type: "integer", nullable: false, unique: false, primaryKey: true }] },
+          {
+            name: "posts",
+            columns: [
+              { name: "id", type: "integer", nullable: false, unique: false, primaryKey: true },
+              { name: "author_id", type: "integer", nullable: false, unique: false, primaryKey: false },
+            ],
+          },
+        ],
+        [{ sourceTable: "posts", sourceColumns: ["author_id"], targetTable: "users", targetColumns: ["id"] }]
+      )
+      expect(postgresSqlCompiler.compile(ast)).toEqual(postgresSqlCompiler.compile(ast))
     })
   })
 

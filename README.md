@@ -169,10 +169,10 @@ The application is deployed on **Vercel** at [schemacraft-ai.vercel.app](https:/
 ## Roadmap
 
 - [x] **Milestone 1 — Test Infrastructure & CI** ✅ *Complete* — 149 automated tests, GitHub Actions CI, production deployment validated end-to-end.
-- [ ] **Milestone 2 — Critical Bug Fixes** — project-selector display name, FK-column auto-indexing, join-table composite-uniqueness warning.
-- [ ] **Milestone 3 — History & Navigation UI** — browse, view, and delete past generations per project.
+- [x] **Milestone 2 — Critical Bug Fixes** ✅ *Complete* — project-selector display name, FK-column auto-indexing, join-table composite-uniqueness warning.
+- [x] **Milestone 3 — History & Navigation UI** ✅ *Complete* — browse, open, and delete past generations per project.
 - [ ] **Milestone 4 — Deployment & Ops Hardening** — Git↔Vercel integration, production data cleanup.
-- [ ] **Milestone 5 — Compiler & Prompt Quality Polish** — smarter type sizing, richer sample data, CSP headers.
+- [ ] **Milestone 5 — Compiler & Prompt Quality Polish** — smarter type sizing, richer sample data, CSP headers. *(client-side prompt-length UX already shipped as part of this milestone's scope)*
 
 See [`docs/planning/v0.7.1-roadmap.md`](./docs/planning/v0.7.1-roadmap.md) for the full technical roadmap.
 

@@ -57,6 +57,11 @@ export const columnNodeSchema = z.object({
   // Only meaningful when type === "enum"; the analyzer does not currently
   // enforce that pairing, but compilers may.
   enumValues: z.array(z.string()).optional(),
+  // Only meaningful when type === "string" (VARCHAR/varchar width). Unset
+  // falls back to each compiler's existing default of 255 — this field
+  // only ever narrows or widens that default, never changes behavior for
+  // AI output that omits it (S6-005, TD-009).
+  maxLength: z.number().int().positive().optional(),
   comment: z.string().optional(),
   extensions: z.record(z.string(), z.unknown()).optional(),
 })

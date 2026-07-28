@@ -9,7 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>
+}) {
+  const { next } = await searchParams
+
   return (
     <Card>
       <CardHeader>
@@ -17,7 +23,7 @@ export default function LoginPage() {
         <CardDescription>Sign in to your SchemaCraft AI account.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <LoginForm />
+        <LoginForm next={next} />
         <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="text-primary underline-offset-4 hover:underline">

@@ -2,53 +2,50 @@ import "server-only"
 
 import type { Content } from "@google/genai"
 
-import { CURRENT_AST_VERSION } from "@/lib/ast/schema"
+import { buildSharedAstInstructions } from "@/lib/ai/ast-prompt-instructions"
+import type { PromptBuilder } from "@/lib/ai/providers/prompt-builder.interface"
 
 // Gemini-specific prompt construction for AST generation. This replaces
-// the old lib/ai/prompts.ts, which asked the model to produce SQL,
-// Drizzle, JSON, docs, and a Mermaid diagram directly in one response —
-// that contract no longer exists. The model's only job now is to
-// produce a single CanonicalSchemaAST; every other artifact is compiled
-// from it deterministically (see lib/compiler).
+// the old (deleted) lib/ai/prompts.ts, which asked the model to produce
+// SQL, Drizzle, JSON, docs, and a Mermaid diagram directly in one
+// response — that contract no longer exists. The model's only job now is
+// to produce a single CanonicalSchemaAST; every other artifact is
+// compiled from it deterministically (see lib/compiler). The new,
+// unrelated lib/ai/ast-prompt-instructions.ts (S5-002) deliberately
+// avoids that old filename to prevent exactly this kind of confusion.
 //
-// Lives under lib/ai/providers/ rather than lib/ai/ because prompt
-// construction is a provider implementation detail, not a shared
-// concern — a future non-Gemini provider would build its own prompt in
-// its own shape (e.g. a Chat Completions message array), not reuse this.
-
-function systemInstructionsSection(): string {
-  return "You are a database design assistant for SchemaCraft AI. Given a short natural-language description of some data, design a schema for it and return it as a single JSON object matching the CanonicalSchemaAST structure defined by the response schema."
-}
-
-function databaseDesignRulesSection(): string {
-  return [
-    "Database design rules:",
-    "- Use snake_case for every table name and column name.",
-    "- Every table needs a primary key: either a table-level primaryKey.columns entry, or exactly one column with primaryKey: true.",
-    "- Model every foreign key as an entry in the top-level relationships array (sourceTable/sourceColumns/targetTable/targetColumns) — never leave a column implying a relationship without a matching entry.",
-    '- Prefer a timestamp column (e.g. created_at) with a { kind: "now" } default on tables that represent real-world records.',
-    "- A column's `default` is optional. If present, `kind` must be exactly one of these five values — never any other word: " +
-      '`"literal"` (a fixed value, with a `value` field holding that string/number/boolean/null — use this for any constant default, e.g. { kind: "literal", value: 0 }), ' +
-      '`"now"` (current timestamp, no other fields), ' +
-      '`"uuid"` (a generated UUID, no other fields — typical for a uuid-type primary key), ' +
-      '`"autoincrement"` (a database-generated increasing integer, no other fields — typical for an integer-type primary key), or ' +
-      '`"expression"` (a raw dialect-specific SQL expression string in an `expression` field, for cases the other four kinds don\'t cover).',
-    `- Set astVersion to exactly "${CURRENT_AST_VERSION}".`,
-  ].join("\n")
-}
+// Lives under lib/ai/providers/ rather than lib/ai/ because *this*
+// module's own remaining content (the output-contract framing below) is
+// a Gemini-specific implementation detail, unlike the shared instructions
+// it now imports — Anthropic's own prompt builder
+// (anthropic-prompts.ts) uses a different output-forcing mechanism
+// (a forced tool call) and doesn't need this section at all.
 
 function outputContractSection(): string {
   return "Return only the CanonicalSchemaAST JSON object — no explanation, no markdown formatting, no text outside the JSON."
 }
 
 function buildSystemPrompt(): string {
-  return [systemInstructionsSection(), databaseDesignRulesSection(), outputContractSection()].join(
-    "\n\n"
-  )
+  return [buildSharedAstInstructions(), outputContractSection()].join("\n\n")
 }
 
-export const AST_SYSTEM_PROMPT = buildSystemPrompt()
+/** Gemini's own request shape: a system instruction plus a `Content[]` message array. */
+export interface GeminiPrompt {
+  systemInstruction: string
+  messages: Content[]
+}
 
-export function buildAstMessages(prompt: string): Content[] {
-  return [{ role: "user", parts: [{ text: prompt }] }]
+/**
+ * Full JSDoc per S5-001: builds the {@link GeminiPrompt} for a given
+ * {@link AIGenerationRequest}. `request.extensions` is not currently
+ * consumed — reserved for future per-request overrides, mirroring
+ * `lib/compiler`'s `CompilerOptions.extensions` escape hatch.
+ */
+export const geminiPromptBuilder: PromptBuilder<GeminiPrompt> = {
+  build(request) {
+    return {
+      systemInstruction: buildSystemPrompt(),
+      messages: [{ role: "user", parts: [{ text: request.prompt }] }],
+    }
+  },
 }
