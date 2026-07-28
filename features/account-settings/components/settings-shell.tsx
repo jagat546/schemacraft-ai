@@ -42,10 +42,10 @@ export function SettingsShell({
   initialHighContrast: boolean
 }) {
   return (
-    <Tabs defaultValue="appearance" className="flex flex-col gap-6 sm:flex-row">
-      <TabsList className="flex h-auto w-full shrink-0 flex-row overflow-x-auto sm:w-48 sm:flex-col sm:overflow-visible">
+    <Tabs defaultValue="appearance" className="flex flex-col gap-6 sm:flex-row!">
+      <TabsList className="flex h-auto w-full shrink-0 flex-row overflow-x-auto sm:w-48 sm:h-auto! sm:flex-col! sm:self-start sm:overflow-visible">
         {CATEGORIES.map((category) => (
-          <TabsTrigger key={category.value} value={category.value} className="sm:justify-start">
+          <TabsTrigger key={category.value} value={category.value} className="sm:flex-none sm:justify-start">
             {category.label}
           </TabsTrigger>
         ))}
