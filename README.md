@@ -131,9 +131,9 @@ npm run typecheck     # tsc --noEmit
 npm test
 ```
 
-The project has **149 automated tests** across 9 test files, covering the AST validator, the semantic analyzer, all 5 compilers (SQL, Drizzle, JSON, Markdown, Mermaid), and the generation-service integration seam. Every compiler has both a hand-verified expected-output test and a determinism test (compile twice, assert byte-identical output) — no snapshot testing, since the whole point of these compilers is deterministic, human-reviewable output, and a snapshot would rubber-stamp any accidental change instead of catching it.
+The project has **368 automated tests** across 51 test files, covering the AST validator, the semantic analyzer, all 5 compilers (SQL, Drizzle, JSON, Markdown, Mermaid), the generation-service integration seam, and the UI layer (components, hooks, and accessibility). Every compiler has both a hand-verified expected-output test and a determinism test (compile twice, assert byte-identical output) — no snapshot testing, since the whole point of these compilers is deterministic, human-reviewable output, and a snapshot would rubber-stamp any accidental change instead of catching it.
 
-**GitHub Actions CI** (`.github/workflows/ci.yml`) runs on every push and pull request to `main`: install → lint → typecheck → test → build. All four steps must pass before a change is considered mergeable.
+**GitHub Actions** (`.github/workflows/project_ci.yml`) provides a manually-triggered (`workflow_dispatch`) build pipeline: install → lint → typecheck → test → build.
 
 ## Production Deployment
 
@@ -143,11 +143,17 @@ The application is deployed on **Vercel** at [schemacraft-ai.vercel.app](https:/
 
 ## Screenshots
 
+**Landing page**
+![Landing page](./docs/screenshots/landing-page.jpg)
+
 **Dashboard — dark mode**
 ![Dashboard, dark mode](./docs/screenshots/dashboard-dark-mode.jpg)
 
 **Dashboard — light mode**
 ![Dashboard, light mode](./docs/screenshots/dashboard-light-mode.jpg)
+
+**Schema Generator**
+![Schema Generator](./docs/screenshots/generator.jpg)
 
 **Generated SQL**
 ![Generated SQL output](./docs/screenshots/generated-sql-output.jpg)
@@ -163,6 +169,12 @@ The application is deployed on **Vercel** at [schemacraft-ai.vercel.app](https:/
 
 **Generated Mermaid ER diagram**
 ![Generated Mermaid ER diagram](./docs/screenshots/generated-mermaid-erd.jpg)
+
+**Generation history**
+![Generation history](./docs/screenshots/history.jpg)
+
+**Account settings**
+![Account settings](./docs/screenshots/account-settings.jpg)
 
 ---
 
